@@ -6,30 +6,29 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
+const app = express();
+const PORT = 3000;
 
-  // JSON parsing middleware
-  app.use(express.json());
+// JSON parsing middleware
+app.use(express.json());
 
-  // Initialize Gemini SDK with telemetry header
-  const ai = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
-      }
+// Initialize Gemini SDK with telemetry header
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY,
+  httpOptions: {
+    headers: {
+      'User-Agent': 'aistudio-build',
     }
-  });
+  }
+});
 
-  // API Health check
-  app.get("/api/health", (req, res) => {
-    res.json({ status: "ok" });
-  });
+// API Health check
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok" });
+});
 
-  // Analysis endpoint using Gemini 3.5 Flash with structured JSON output
-  app.post("/api/analyze", async (req, res) => {
+// Analysis endpoint using Gemini 3.5 Flash with structured JSON output
+app.post("/api/analyze", async (req, res) => {
     try {
       const { transcript } = req.body;
       if (!transcript || typeof transcript !== "string") {
@@ -115,24 +114,29 @@ Tu rol:
     }
   });
 
-  // Vite development server or production build static delivery
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
+  // Setup dev server and production static hosting only when not on Vercel
+  async function setupServer() {
+    if (!process.env.VERCEL) {
+      if (process.env.NODE_ENV !== "production") {
+        const vite = await createViteServer({
+          server: { middlewareMode: true },
+          appType: "spa",
+        });
+        app.use(vite.middlewares);
+      } else {
+        const distPath = path.join(process.cwd(), "dist");
+        app.use(express.static(distPath));
+        app.get("*", (req, res) => {
+          res.sendFile(path.join(distPath, "index.html"));
+        });
+      }
+
+      app.listen(PORT, "0.0.0.0", () => {
+        console.log(`Server running on http://localhost:${PORT}`);
+      });
+    }
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
-}
+  setupServer();
 
-startServer();
+  export default app;
