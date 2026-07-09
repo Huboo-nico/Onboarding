@@ -33,53 +33,111 @@ interface BatchUpdateRequest {
 }
 
 /**
- * Creates a beautifully formatted Google Doc in the user's Drive with the KYC report.
+ * Creates a beautifully formatted Google Doc in a specific folder named after the company.
  */
 export async function createKYCDocument(
   token: string,
   data: KYCAnalysisResult
-): Promise<string> {
-  const title = `KYC Report: ${data.companyName} (${data.clientName})`;
-
-  // 1. Create a blank document
-  const createRes = await fetch('https://docs.googleapis.com/v1/documents', {
+): Promise<{ docUrl: string; folderUrl: string; folderName: string }> {
+  const companyName = (data.companyName || 'Empresa').trim();
+  const clientName = (data.clientName || 'Cliente').trim();
+  
+  // 1. Search for an existing folder with the company name
+  let folderId = '';
+  // Avoid SQL-like injection in search query by escaping single quotes
+  const escapedCompanyName = companyName.replace(/'/g, "\\'");
+  const searchQueries = `mimeType='application/vnd.google-apps.folder' and name='${escapedCompanyName}' and trashed=false`;
+  
+  try {
+    const searchRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(searchQueries)}&fields=files(id,name)`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    
+    if (searchRes.ok) {
+      const searchData = await searchRes.json();
+      if (searchData.files && searchData.files.length > 0) {
+        folderId = searchData.files[0].id;
+      }
+    }
+  } catch (searchErr) {
+    console.error('Error al buscar la carpeta de la empresa:', searchErr);
+  }
+  
+  // 2. If folder doesn't exist, create it
+  if (!folderId) {
+    try {
+      const createFolderRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: companyName,
+          mimeType: 'application/vnd.google-apps.folder',
+        }),
+      });
+      
+      if (createFolderRes.ok) {
+        const folderData = await createFolderRes.json();
+        folderId = folderData.id;
+      } else {
+        const err = await createFolderRes.json().catch(() => ({}));
+        console.error('Error al crear la carpeta en Drive:', err);
+      }
+    } catch (createErr) {
+      console.error('Error de red al crear carpeta:', createErr);
+    }
+  }
+  
+  // 3. Create the Google Doc inside the company folder (or root as fallback)
+  const docTitle = `Informe KYC - ${companyName} (${clientName})`;
+  const createDocBody: any = {
+    name: docTitle,
+    mimeType: 'application/vnd.google-apps.document',
+  };
+  
+  if (folderId) {
+    createDocBody.parents = [folderId];
+  }
+  
+  const createDocRes = await fetch('https://www.googleapis.com/drive/v3/files', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ title }),
+    body: JSON.stringify(createDocBody),
   });
-
-  if (!createRes.ok) {
-    const err = await createRes.json();
-    throw new Error(err.error?.message || 'Error al crear el documento en Google Docs.');
+  
+  if (!createDocRes.ok) {
+    const err = await createDocRes.json().catch(() => ({}));
+    throw new Error(err.error?.message || 'Error al crear el documento en Google Drive.');
   }
-
-  const doc = await createRes.json();
-  const documentId = doc.documentId;
-
-  // 2. Build the document content
-  // We will build a styled document using batchUpdate.
-  // To avoid complex index calculations, we append text sequentially.
-  // Because we append to index 1 (just after the start), we build the document from the BOTTOM up, 
-  // or we can append with a single big text block first and style ranges.
-  // Let's create a structured markdown-like text layout.
-
+  
+  const docData = await createDocRes.json();
+  const documentId = docData.id;
+  
+  // 4. Build document text
   const isCompliantText = data.isCompliant ? 'CONFORME (SÍ)' : 'ALERTA DE INCUMPLIMIENTO (NO - BRECHA DE POLÍTICA)';
   const severityText = data.breachSeverity === 'CRITICAL' ? 'CRÍTICA' : 'NINGUNA';
-
+  
   const bodyText = `
 INFORME DE CUMPLIMIENTO DE COMPLIANCE (KYC)
 Documento de Control Interno Corporativo - Generado por KYC Compliance Automator
 ---------------------------------------------------------------------------------
 
 1. INFORMACIÓN GENERAL DE LA CONTRAPARTE
-   • Cliente/Representante: ${data.clientName}
-   • Empresa / Entidad: ${data.companyName}
-   • Cargo / Rol: ${data.role}
-   • País: ${data.country}
-   • Información de Contacto: ${data.contactInfo}
+   • Cliente/Representante: ${clientName}
+   • Empresa / Entidad: ${companyName}
+   • Cargo / Rol: ${data.role || 'No especificado'}
+   • País: ${data.country || 'No especificado'}
+   • Información de Contacto: ${data.contactInfo || 'No especificada'}
 
 2. ESTADO DE CUMPLIMIENTO (POLÍTICA DE CERO TOLERANCIA)
    • ¿Cumple con el protocolo de onboarding?: ${isCompliantText}
@@ -87,25 +145,25 @@ Documento de Control Interno Corporativo - Generado por KYC Compliance Automator
    • ¿Se detectaron discusiones comerciales previas?: ${data.commercialDiscussionsDetected ? 'SÍ' : 'NO'}
 
 3. DETALLES DE LAS TEMAS COMERCIALES DISCUTIDOS
-   ${data.commercialDetailsFound}
+   ${data.commercialDetailsFound || 'Ninguno'}
 
 4. ESTADO DEL CHECKLIST KYC (REQUERIDO ANTES DE NEGOCIACIÓN)
-   [${data.kycChecklist.identityEstablished ? 'X' : ' '}] Identidad Legal Establecida y Registrada
-   [${data.kycChecklist.ownershipVerified ? 'X' : ' '}] Verificación de Beneficiarios Finales (UBO) Completada
-   [${data.kycChecklist.businessActivityDefined ? 'X' : ' '}] Propósito y Actividad Comercial Definida
-   [${data.kycChecklist.riskAssessmentCompleted ? 'X' : ' '}] Análisis de Perfil de Riesgo Completado
+   [${data.kycChecklist?.identityEstablished ? 'X' : ' '}] Identidad Legal Establecida y Registrada
+   [${data.kycChecklist?.ownershipVerified ? 'X' : ' '}] Verificación de Beneficiarios Finales (UBO) Completada
+   [${data.kycChecklist?.businessActivityDefined ? 'X' : ' '}] Propósito y Actividad Comercial Definida
+   [${data.kycChecklist?.riskAssessmentCompleted ? 'X' : ' '}] Análisis de Perfil de Riesgo Completado
 
 5. ACCIONES Y PRÓXIMOS PASOS REQUERIDOS
-${data.nextStepsRequired.map(step => `   • ${step}`).join('\n')}
+${(data.nextStepsRequired || []).map(step => `   • ${step}`).join('\n')}
 
 6. RESUMEN DE LA CONVERSACIÓN
-   ${data.summaryOfCall}
+   ${data.summaryOfCall || 'Sin transcripción'}
 
 ---------------------------------------------------------------------------------
 AVISO DE COMPLIANCE: De acuerdo con la Política de Cero Tolerancia corporativa, no se pueden reanudar o mantener discusiones comerciales con la contraparte hasta que todos los puntos del Checklist KYC muestren [X] (Verificados).
   `;
-
-  // Apply batch update to write text
+  
+  // 5. Update Doc Content using Google Docs batchUpdate
   const requests: BatchUpdateRequest[] = [
     {
       insertText: {
@@ -114,9 +172,7 @@ AVISO DE COMPLIANCE: De acuerdo con la Política de Cero Tolerancia corporativa,
       }
     }
   ];
-
-  // We can also add styling requests if we want, but simple formatted text is robust.
-  // Let's do a text insertion.
+  
   const updateRes = await fetch(`https://docs.googleapis.com/v1/documents/${documentId}:batchUpdate`, {
     method: 'POST',
     headers: {
@@ -125,12 +181,18 @@ AVISO DE COMPLIANCE: De acuerdo con la Política de Cero Tolerancia corporativa,
     },
     body: JSON.stringify({ requests }),
   });
-
+  
   if (!updateRes.ok) {
-    const err = await updateRes.json();
-    console.error('Error styling document:', err);
-    // Even if styling fails, we have the document, so we can fall back to returning the link.
+    const err = await updateRes.json().catch(() => ({}));
+    console.error('Error al aplicar formato al documento:', err);
   }
-
-  return `https://docs.google.com/document/d/${documentId}/edit`;
+  
+  const docUrl = `https://docs.google.com/document/d/${documentId}/edit`;
+  const folderUrl = folderId ? `https://drive.google.com/drive/folders/${folderId}` : 'https://drive.google.com';
+  
+  return {
+    docUrl,
+    folderUrl,
+    folderName: companyName,
+  };
 }

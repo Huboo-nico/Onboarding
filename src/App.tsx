@@ -20,7 +20,8 @@ import {
   Lock,
   ArrowRight,
   Info,
-  Clock
+  Clock,
+  Folder
 } from 'lucide-react';
 import { mockTranscripts, TranscriptTemplate } from './mockData';
 import { KYCAnalysisResult, ClientRecord } from './types';
@@ -49,6 +50,8 @@ export default function App() {
   // Export State
   const [exportingDoc, setExportingDoc] = useState<boolean>(false);
   const [exportedDocUrl, setExportedDocUrl] = useState<string | null>(null);
+  const [exportedFolderUrl, setExportedFolderUrl] = useState<string | null>(null);
+  const [exportedFolderName, setExportedFolderName] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
 
   // Initialize and load clients history
@@ -185,6 +188,8 @@ export default function App() {
     setGoogleUser(null);
     setOauthToken(null);
     setExportedDocUrl(null);
+    setExportedFolderUrl(null);
+    setExportedFolderName(null);
   };
 
   // Pre-fill transcript from templates
@@ -192,6 +197,8 @@ export default function App() {
     setTranscript(template.text);
     setError(null);
     setExportedDocUrl(null);
+    setExportedFolderUrl(null);
+    setExportedFolderName(null);
   };
 
   // Analyze transcript with server-side Gemini API
@@ -204,6 +211,8 @@ export default function App() {
     setIsLoading(true);
     setError(null);
     setExportedDocUrl(null);
+    setExportedFolderUrl(null);
+    setExportedFolderName(null);
     setExportError(null);
 
     try {
@@ -225,6 +234,11 @@ export default function App() {
       
       // Auto-save analyzed client to local storage directory
       saveClientRecord(result);
+
+      // If already connected to Google Drive, automatically upload it!
+      if (oauthToken) {
+        handleExportToGoogleDoc(result);
+      }
 
     } catch (err: any) {
       console.error('Analysis error:', err);
@@ -285,15 +299,20 @@ export default function App() {
   };
 
   // Create Google Doc
-  const handleExportToGoogleDoc = async () => {
-    if (!oauthToken || !currentResult) return;
+  const handleExportToGoogleDoc = async (resultToExport?: KYCAnalysisResult) => {
+    const targetResult = resultToExport || currentResult;
+    if (!oauthToken || !targetResult) return;
     setExportingDoc(true);
     setExportError(null);
     setExportedDocUrl(null);
+    setExportedFolderUrl(null);
+    setExportedFolderName(null);
 
     try {
-      const docUrl = await createKYCDocument(oauthToken, currentResult);
+      const { docUrl, folderUrl, folderName } = await createKYCDocument(oauthToken, targetResult);
       setExportedDocUrl(docUrl);
+      setExportedFolderUrl(folderUrl);
+      setExportedFolderName(folderName);
     } catch (err: any) {
       console.error('Google Docs export error:', err);
       setExportError('Fallo al exportar a Google Docs: ' + (err.message || err));
@@ -861,7 +880,7 @@ export default function App() {
                         <li>Crea o selecciona tu proyecto y ve a <strong>Credenciales</strong>.</li>
                         <li>Haz clic en <strong>Crear credenciales</strong> &gt; <strong>ID de cliente de OAuth</strong> (Tipo de aplicación: <em>Aplicación web</em>).</li>
                         <li>Agrega en <strong>Orígenes de JavaScript autorizados</strong>: <code className="bg-slate-200 px-1.5 py-0.5 rounded text-red-600 font-mono select-all text-[10px]">{window.location.origin}</code></li>
-                        <li>Agrega en <strong>URIs de redireccionamiento autorizados</strong>: <code className="bg-slate-200 px-1.5 py-0.5 rounded text-red-600 font-mono select-all text-[10px]">{window.location.origin + '/'}</code></li>
+                        <li>Agrega en <strong>URIs de redireccionamiento autorizados</strong>: <code className="bg-slate-200 px-1.5 py-0.5 rounded text-red-600 font-mono select-all text-[10px]">{window.location.origin}</code></li>
                         <li>Copia el <strong>ID de cliente</strong> generado y pégalo abajo:</li>
                       </ol>
 
@@ -934,21 +953,48 @@ export default function App() {
 
                   {/* Resultados de Exportación Google */}
                   {exportedDocUrl && (
-                    <div className="bg-indigo-50 border border-indigo-150 text-indigo-950 p-4 rounded flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 animate-fadeIn">
-                      <div>
-                        <p className="text-xs font-bold text-indigo-900">¡Documento de Google creado con éxito!</p>
-                        <p className="text-[11px] text-indigo-700">Se guardó una copia estructurada del informe en su Google Drive corporativo.</p>
+                    <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-lg flex flex-col gap-3 animate-fadeIn">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                        <div>
+                          <p className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+                            <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                            ¡Reporte subido a Google Drive con éxito!
+                          </p>
+                          <p className="text-[11px] text-indigo-700 mt-0.5">
+                            Se guardó en la carpeta <strong className="text-indigo-900">"{exportedFolderName || 'Empresa'}"</strong> en Google Drive.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2 w-full sm:w-auto shrink-0">
+                          {exportedFolderUrl && (
+                            <a
+                              href={exportedFolderUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 font-bold text-[10px] uppercase tracking-wider py-1.5 px-3 rounded flex items-center gap-1.5 transition whitespace-nowrap justify-center flex-1 sm:flex-none cursor-pointer"
+                            >
+                              <Folder className="w-3 h-3 text-indigo-600" />
+                              Ver Carpeta de Empresa
+                            </a>
+                          )}
+                          <a
+                            href={exportedDocUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] uppercase tracking-wider py-1.5 px-3 rounded flex items-center gap-1.5 transition whitespace-nowrap justify-center flex-1 sm:flex-none cursor-pointer"
+                          >
+                            Abrir Documento Google
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </div>
                       </div>
-                      <a
-                        href={exportedDocUrl}
-                        target="_blank"
-                        rel="referrer"
-                        className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] uppercase tracking-wider py-1.5 px-3 rounded flex items-center gap-1.5 transition whitespace-nowrap"
-                      >
-                        Abrir Documento Google
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
                     </div>
+                  )}
+
+                  {!googleUser && (
+                    <p className="text-[10px] text-slate-500 italic mt-1 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-indigo-500 inline" />
+                      Tip: Cuando conectas tu Google Drive, cada análisis completado se guardará de forma automática en una carpeta de Drive creada para esa empresa.
+                    </p>
                   )}
 
                   {exportError && (
