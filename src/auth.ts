@@ -63,6 +63,30 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
   }
 };
 
+// Start Google Direct OAuth Implicit sign-in flow (robust fallback for custom domains like Vercel)
+export const googleSignInDirect = (customClientId?: string) => {
+  const clientId = customClientId || firebaseConfig.oAuthClientId || '507166952584-4plde32qf2n7g3dvgu2d3phnbhupb9go.apps.googleusercontent.com';
+  const redirectUri = window.location.origin + '/';
+  const scopes = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
+  
+  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(scopes)}&prompt=consent`;
+  
+  const width = 550;
+  const height = 650;
+  const left = window.screen.width / 2 - width / 2;
+  const top = window.screen.height / 2 - height / 2;
+  
+  const popup = window.open(
+    authUrl,
+    'google_oauth',
+    `width=${width},height=${height},top=${top},left=${left}`
+  );
+  
+  if (!popup) {
+    throw new Error('POPUP_BLOCKED');
+  }
+};
+
 export const getAccessToken = async (): Promise<string | null> => {
   return cachedAccessToken;
 };

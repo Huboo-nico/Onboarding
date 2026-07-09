@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { mockTranscripts, TranscriptTemplate } from './mockData';
 import { KYCAnalysisResult, ClientRecord } from './types';
-import { initAuth, googleSignIn, logout, isUsingPlaceholder } from './auth';
+import { initAuth, googleSignIn, googleSignInDirect, logout, isUsingPlaceholder } from './auth';
 import { createKYCDocument } from './gdrive';
 import { User as FirebaseUser } from 'firebase/auth';
 
@@ -42,6 +42,10 @@ export default function App() {
   const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
   const [isWorkspaceConfigured, setIsWorkspaceConfigured] = useState<boolean>(true);
   
+  // Custom Google Client ID State for Vercel/Custom Domain compatibility
+  const [customGoogleClientId, setCustomGoogleClientId] = useState<string>('');
+  const [showGoogleConfig, setShowGoogleConfig] = useState<boolean>(false);
+
   // Export State
   const [exportingDoc, setExportingDoc] = useState<boolean>(false);
   const [exportedDocUrl, setExportedDocUrl] = useState<string | null>(null);
@@ -51,6 +55,12 @@ export default function App() {
   useEffect(() => {
     // Check if Firebase key is placeholder (which indicates Google OAuth is not completed yet)
     setIsWorkspaceConfigured(!isUsingPlaceholder());
+
+    // Load custom Google Client ID if saved
+    const savedClientId = localStorage.getItem('custom_google_client_id');
+    if (savedClientId) {
+      setCustomGoogleClientId(savedClientId);
+    }
 
     // Load clients history from localStorage
     const savedClients = localStorage.getItem('kyc_clients_history');
@@ -74,13 +84,78 @@ export default function App() {
       }
     );
 
-    return () => unsubscribe();
+    // Listen for direct Google OAuth messages (used on custom domains like Vercel)
+    const handleOAuthMessage = async (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+
+      if (event.data?.type === 'GOOGLE_OAUTH_SUCCESS' && event.data?.token) {
+        const token = event.data.token;
+        setOauthToken(token);
+        
+        // Fetch user info from Google's profile endpoint
+        try {
+          const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setGoogleUser({
+              displayName: data.name || data.given_name || 'Usuario Google',
+              email: data.email || '',
+              photoURL: data.picture || null,
+            } as any);
+          } else {
+            setGoogleUser({
+              displayName: 'Usuario Google Conectado',
+              email: '',
+              photoURL: null,
+            } as any);
+          }
+        } catch (e) {
+          console.error('Error fetching Google user info:', e);
+          setGoogleUser({
+            displayName: 'Usuario Google Conectado',
+            email: '',
+            photoURL: null,
+          } as any);
+        }
+      } else if (event.data?.type === 'GOOGLE_OAUTH_FAILURE') {
+        setExportError('Fallo al conectar con Google: ' + (event.data.error || 'Acceso denegado'));
+      }
+    };
+
+    window.addEventListener('message', handleOAuthMessage);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('message', handleOAuthMessage);
+    };
   }, []);
 
   // Handle Google Login for exporting
   const handleGoogleLogin = async () => {
     setIsLoggingIn(true);
     setExportError(null);
+    
+    // Check if we are on a custom domain (like Vercel)
+    const isCustomDomain = window.location.hostname !== 'localhost' && 
+                           !window.location.hostname.endsWith('.run.app') &&
+                           !window.location.hostname.endsWith('.local');
+
+    if (isCustomDomain || customGoogleClientId) {
+      try {
+        googleSignInDirect(customGoogleClientId || undefined);
+      } catch (err: any) {
+        if (err.message === 'POPUP_BLOCKED') {
+          setExportError('El navegador bloqueó la ventana emergente de inicio de sesión. Por favor, permite ventanas emergentes para este sitio.');
+        } else {
+          setExportError('Error al iniciar Google Sign-In directo: ' + err.message);
+        }
+        setIsLoggingIn(false);
+      }
+      return;
+    }
+
     try {
       const result = await googleSignIn();
       if (result) {
@@ -91,7 +166,13 @@ export default function App() {
       if (err.message === 'CONFIG_REQUIRED') {
         alert('Configuración Requerida: Para conectar Google Workspace, primero debes aceptar la ventana flotante de Google OAuth (ver la tarjeta debajo del chat). Mientras tanto, puedes usar la aplicación de forma local.');
       } else {
-        setExportError('Fallo al conectar con Google: ' + err.message);
+        // Fallback to direct sign-in if Firebase popup fails!
+        console.warn('Firebase login failed, trying Direct Google OAuth fallback:', err);
+        try {
+          googleSignInDirect();
+        } catch (fallbackErr: any) {
+          setExportError('Fallo al conectar con Google: ' + err.message);
+        }
       }
     } finally {
       setIsLoggingIn(false);
@@ -750,9 +831,65 @@ export default function App() {
 
                 {/* 5. Acciones de Exportación */}
                 <div className="border-t border-slate-200 pt-6 flex flex-col gap-3">
-                  <h4 className="font-display font-bold text-slate-800 text-xs uppercase tracking-wider">
-                    Exportar Reporte de Compliance
-                  </h4>
+                  <div className="flex justify-between items-center flex-wrap gap-2">
+                    <h4 className="font-display font-bold text-slate-800 text-xs uppercase tracking-wider">
+                      Exportar Reporte de Compliance
+                    </h4>
+                    
+                    {/* Settings Trigger */}
+                    <button
+                      type="button"
+                      onClick={() => setShowGoogleConfig(!showGoogleConfig)}
+                      className="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 cursor-pointer transition"
+                    >
+                      <Info className="w-3.5 h-3.5" />
+                      {showGoogleConfig ? 'Ocultar Ajustes' : 'Ajustes de Google Drive (Vercel)'}
+                    </button>
+                  </div>
+
+                  {/* Google Configuration Panel */}
+                  {showGoogleConfig && (
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600 flex flex-col gap-3 animate-fadeIn mb-2">
+                      <div className="font-semibold text-slate-800 text-xs">
+                        Guía de Configuración para Dominios Propios o Vercel
+                      </div>
+                      <p className="text-[11px] leading-relaxed">
+                        Para conectar tu Google Drive desde una app desplegada en un dominio personalizado o Vercel, debes usar tu propio <strong>Client ID de Google</strong>:
+                      </p>
+                      <ol className="list-decimal pl-4 text-[11px] flex flex-col gap-1.5 text-slate-600">
+                        <li>Ve a la <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-semibold">Consola de Google Cloud</a>.</li>
+                        <li>Crea o selecciona tu proyecto y ve a <strong>Credenciales</strong>.</li>
+                        <li>Haz clic en <strong>Crear credenciales</strong> &gt; <strong>ID de cliente de OAuth</strong> (Tipo de aplicación: <em>Aplicación web</em>).</li>
+                        <li>Agrega en <strong>Orígenes de JavaScript autorizados</strong>: <code className="bg-slate-200 px-1.5 py-0.5 rounded text-red-600 font-mono select-all text-[10px]">{window.location.origin}</code></li>
+                        <li>Agrega en <strong>URIs de redireccionamiento autorizados</strong>: <code className="bg-slate-200 px-1.5 py-0.5 rounded text-red-600 font-mono select-all text-[10px]">{window.location.origin + '/'}</code></li>
+                        <li>Copia el <strong>ID de cliente</strong> generado y pégalo abajo:</li>
+                      </ol>
+
+                      <div className="flex flex-col gap-1.5 mt-2">
+                        <label className="font-semibold text-slate-700 text-[11px]">ID de Cliente de Google (OAuth Client ID):</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={customGoogleClientId}
+                            onChange={(e) => setCustomGoogleClientId(e.target.value)}
+                            placeholder="Ej. 123456789-abc.apps.googleusercontent.com"
+                            className="bg-white border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-800 w-full focus:outline-none focus:border-indigo-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              localStorage.setItem('custom_google_client_id', customGoogleClientId.trim());
+                              setShowGoogleConfig(false);
+                              alert('Configuración de Google Client ID guardada correctamente.');
+                            }}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 rounded transition cursor-pointer shrink-0"
+                          >
+                            Guardar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   
                   <div className="flex flex-wrap gap-3">
                     {/* Google Docs Export */}
