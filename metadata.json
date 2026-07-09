@@ -1,0 +1,6 @@
+{
+  "name": "KYC Compliance Automator",
+  "description": "Automate client KYC onboarding, analyze transcripts for compliance breaches, and generate onboarding checklists with Google Drive integration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

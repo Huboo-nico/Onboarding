@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script>
+      (function() {
+        try {
+          var target = window;
+          var desc = Object.getOwnPropertyDescriptor(target, 'fetch') || 
+                     (Object.getPrototypeOf(target) ? Object.getOwnPropertyDescriptor(Object.getPrototypeOf(target), 'fetch') : null);
+          if (desc && !desc.set) {
+            var originalFetch = target.fetch;
+            var customFetch = originalFetch;
+            Object.defineProperty(target, 'fetch', {
+              configurable: true,
+              enumerable: true,
+              get: function() {
+                return customFetch;
+              },
+              set: function(val) {
+                customFetch = val;
+              }
+            });
+          }
+        } catch (e) {
+          console.warn('Note: Could not override fetch getter:', e);
+        }
+      })();
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Google AI Studio App</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

@@ -1,0 +1,930 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  ShieldAlert, 
+  ShieldCheck, 
+  CheckCircle2, 
+  XCircle, 
+  User, 
+  Building, 
+  Globe, 
+  FileText, 
+  PlusCircle, 
+  Download, 
+  History, 
+  Sparkles, 
+  ExternalLink,
+  LogOut,
+  AlertTriangle,
+  RefreshCw,
+  Trash2,
+  Lock,
+  ArrowRight,
+  Info,
+  Clock
+} from 'lucide-react';
+import { mockTranscripts, TranscriptTemplate } from './mockData';
+import { KYCAnalysisResult, ClientRecord } from './types';
+import { initAuth, googleSignIn, logout, isUsingPlaceholder } from './auth';
+import { createKYCDocument } from './gdrive';
+import { User as FirebaseUser } from 'firebase/auth';
+
+export default function App() {
+  // Application State
+  const [transcript, setTranscript] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [currentResult, setCurrentResult] = useState<KYCAnalysisResult | null>(null);
+  const [clients, setClients] = useState<ClientRecord[]>([]);
+  
+  // Google Auth / Workspace State
+  const [googleUser, setGoogleUser] = useState<FirebaseUser | null>(null);
+  const [oauthToken, setOauthToken] = useState<string | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
+  const [isWorkspaceConfigured, setIsWorkspaceConfigured] = useState<boolean>(true);
+  
+  // Export State
+  const [exportingDoc, setExportingDoc] = useState<boolean>(false);
+  const [exportedDocUrl, setExportedDocUrl] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  // Initialize and load clients history
+  useEffect(() => {
+    // Check if Firebase key is placeholder (which indicates Google OAuth is not completed yet)
+    setIsWorkspaceConfigured(!isUsingPlaceholder());
+
+    // Load clients history from localStorage
+    const savedClients = localStorage.getItem('kyc_clients_history');
+    if (savedClients) {
+      try {
+        setClients(JSON.parse(savedClients));
+      } catch (e) {
+        console.error('Error loading history:', e);
+      }
+    }
+
+    // Initialize Google Firebase Auth
+    const unsubscribe = initAuth(
+      (user, token) => {
+        setGoogleUser(user);
+        setOauthToken(token);
+      },
+      () => {
+        setGoogleUser(null);
+        setOauthToken(null);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  // Handle Google Login for exporting
+  const handleGoogleLogin = async () => {
+    setIsLoggingIn(true);
+    setExportError(null);
+    try {
+      const result = await googleSignIn();
+      if (result) {
+        setGoogleUser(result.user);
+        setOauthToken(result.accessToken);
+      }
+    } catch (err: any) {
+      if (err.message === 'CONFIG_REQUIRED') {
+        alert('Configuración Requerida: Para conectar Google Workspace, primero debes aceptar la ventana flotante de Google OAuth (ver la tarjeta debajo del chat). Mientras tanto, puedes usar la aplicación de forma local.');
+      } else {
+        setExportError('Fallo al conectar con Google: ' + err.message);
+      }
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  // Handle Log out
+  const handleLogout = async () => {
+    await logout();
+    setGoogleUser(null);
+    setOauthToken(null);
+    setExportedDocUrl(null);
+  };
+
+  // Pre-fill transcript from templates
+  const selectTemplate = (template: TranscriptTemplate) => {
+    setTranscript(template.text);
+    setError(null);
+    setExportedDocUrl(null);
+  };
+
+  // Analyze transcript with server-side Gemini API
+  const handleAnalyze = async () => {
+    if (!transcript.trim()) {
+      setError('Por favor, escribe o pega la transcripción de la llamada antes de realizar el análisis.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setExportedDocUrl(null);
+    setExportError(null);
+
+    try {
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ transcript }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'No se pudo comunicar con el servidor de análisis.');
+      }
+
+      const result: KYCAnalysisResult = await response.json();
+      setCurrentResult(result);
+      
+      // Auto-save analyzed client to local storage directory
+      saveClientRecord(result);
+
+    } catch (err: any) {
+      console.error('Analysis error:', err);
+      setError(err.message || 'Error al procesar la transcripción con Inteligencia Artificial.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Helper to save analyzed record to the client list
+  const saveClientRecord = (record: KYCAnalysisResult) => {
+    const newRecord: ClientRecord = {
+      ...record,
+      id: Math.random().toString(36).substr(2, 9),
+      analyzedAt: new Date().toLocaleString('es-ES', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      transcriptSample: transcript
+    };
+
+    setClients(prev => {
+      // Avoid duplicated companies in history
+      const filtered = prev.filter(c => c.companyName.toLowerCase() !== record.companyName.toLowerCase());
+      const updated = [newRecord, ...filtered];
+      localStorage.setItem('kyc_clients_history', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  // Load a record from history
+  const loadClientFromHistory = (record: ClientRecord) => {
+    setCurrentResult(record);
+    setTranscript(record.transcriptSample);
+    setExportedDocUrl(null);
+    setExportError(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Delete a record from history
+  const deleteRecord = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const confirmed = window.confirm('¿Está seguro de que desea eliminar este cliente del registro local?');
+    if (!confirmed) return;
+
+    setClients(prev => {
+      const updated = prev.filter(c => c.id !== id);
+      localStorage.setItem('kyc_clients_history', JSON.stringify(updated));
+      return updated;
+    });
+
+    if (currentResult && clients.find(c => c.id === id)?.companyName === currentResult.companyName) {
+      setCurrentResult(null);
+    }
+  };
+
+  // Create Google Doc
+  const handleExportToGoogleDoc = async () => {
+    if (!oauthToken || !currentResult) return;
+    setExportingDoc(true);
+    setExportError(null);
+    setExportedDocUrl(null);
+
+    try {
+      const docUrl = await createKYCDocument(oauthToken, currentResult);
+      setExportedDocUrl(docUrl);
+    } catch (err: any) {
+      console.error('Google Docs export error:', err);
+      setExportError('Fallo al exportar a Google Docs: ' + (err.message || err));
+    } finally {
+      setExportingDoc(false);
+    }
+  };
+
+  // Download Local HTML Report
+  const handleDownloadLocalHTML = () => {
+    if (!currentResult) return;
+
+    const isCompliantText = currentResult.isCompliant ? 'CONFORME (SÍ)' : 'ALERTA DE INCUMPLIMIENTO (NO - BRECHA DE POLÍTICA)';
+    const severityText = currentResult.breachSeverity === 'CRITICAL' ? 'CRÍTICA' : 'NINGUNA';
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Reporte KYC - ${currentResult.companyName}</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #1e293b; background-color: #f8fafc; padding: 40px; margin: 0; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        h1 { color: #0f172a; margin-top: 0; font-size: 24px; border-bottom: 2px solid #cbd5e1; padding-bottom: 12px; }
+        .badge { display: inline-block; padding: 6px 12px; border-radius: 9999px; font-weight: bold; font-size: 14px; margin-bottom: 20px; }
+        .badge-success { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+        .badge-error { background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+        .card { background-color: #f1f5f9; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; }
+        .card h3 { margin-top: 0; color: #334155; font-size: 16px; }
+        ul { padding-left: 20px; }
+        li { margin-bottom: 8px; }
+        .footer { text-align: center; margin-top: 40px; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Informe de Cumplimiento de Compliance (KYC)</h1>
+        <div class="badge ${currentResult.isCompliant ? 'badge-success' : 'badge-error'}">
+            Estado de Cumplimiento: ${isCompliantText}
+        </div>
+        
+        <div class="grid">
+            <div class="card">
+                <h3>1. Información de la Contraparte</h3>
+                <p><strong>Cliente:</strong> ${currentResult.clientName}</p>
+                <p><strong>Empresa:</strong> ${currentResult.companyName}</p>
+                <p><strong>Cargo:</strong> ${currentResult.role}</p>
+                <p><strong>País:</strong> ${currentResult.country}</p>
+                <p><strong>Contacto:</strong> ${currentResult.contactInfo}</p>
+            </div>
+            
+            <div class="card">
+                <h3>2. Checklist KYC de Control</h3>
+                <p><strong>Identidad Legal:</strong> ${currentResult.kycChecklist.identityEstablished ? '🟢 Verificado' : '❌ Pendiente'}</p>
+                <p><strong>Propiedad (UBO):</strong> ${currentResult.kycChecklist.ownershipVerified ? '🟢 Verificado' : '❌ Pendiente'}</p>
+                <p><strong>Propósito de Negocio:</strong> ${currentResult.kycChecklist.businessActivityDefined ? '🟢 Verificado' : '❌ Pendiente'}</p>
+                <p><strong>Análisis de Riesgo:</strong> ${currentResult.kycChecklist.riskAssessmentCompleted ? '🟢 Verificado' : '❌ Pendiente'}</p>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 30px;">
+            <h3>3. Resumen de Temas Comerciales Discutidos</h3>
+            <p>${currentResult.commercialDetailsFound}</p>
+            <p><strong>Gravedad de la Alerta:</strong> ${severityText}</p>
+        </div>
+
+        <div class="card" style="margin-bottom: 30px;">
+            <h3>4. Próximos Pasos de Regularización Obligatorios</h3>
+            <ul>
+                ${currentResult.nextStepsRequired.map(step => `<li>${step}</li>`).join('')}
+            </ul>
+        </div>
+
+        <div class="card">
+            <h3>5. Resumen de la Conversación</h3>
+            <p>${currentResult.summaryOfCall}</p>
+        </div>
+
+        <div class="footer">
+            Generado automáticamente por KYC Compliance Automator - Sistema de Seguridad Corporativo de Tolerancia Cero.
+        </div>
+    </div>
+</body>
+</html>
+    `;
+
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Reporte_KYC_${currentResult.companyName.replace(/\s+/g, '_')}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
+      {/* Header: Authority & Protocol */}
+      <header className="bg-slate-900 text-white px-8 py-4 flex flex-col md:flex-row justify-between items-center border-b-4 border-red-600 gap-4 shadow-lg shadow-slate-900/10">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight uppercase font-display flex items-center gap-2.5">
+            KYC Compliance Automator
+            <span className="text-[10px] bg-red-950 text-red-400 font-mono px-2 py-0.5 rounded border border-red-800 font-semibold uppercase tracking-wider">
+              Tolerancia Cero
+            </span>
+          </h1>
+          <p className="text-xs text-slate-400 font-mono mt-0.5">ZERO-TOLERANCE POLICY: KYC COMPLETION MANDATORY BEFORE COMMERCIALS</p>
+        </div>
+        
+        <div className="flex items-center gap-4 text-sm flex-wrap justify-end">
+          <div className="flex items-center gap-2 bg-red-950/80 border border-red-500/50 px-3 py-1.5 rounded">
+            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+            <span className="font-mono text-xs font-bold text-red-200">RESTRICTED MODE ACTIVE</span>
+          </div>
+
+          <div className="h-8 w-[1px] bg-slate-700 hidden sm:block"></div>
+
+          {/* Auth status bar */}
+          <div className="flex items-center gap-3 bg-slate-800/80 px-4 py-1.5 rounded border border-slate-700/60 shadow-sm">
+            {googleUser ? (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-indigo-600 border border-indigo-400 flex items-center justify-center text-xs font-bold text-white">
+                    {googleUser.displayName ? googleUser.displayName.charAt(0) : 'U'}
+                  </div>
+                  <div className="text-left hidden md:block">
+                    <p className="text-[10px] font-semibold text-white leading-3">Conectado</p>
+                    <p className="text-[9px] text-slate-300 leading-none mt-0.5">{googleUser.email}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={handleLogout}
+                  className="text-slate-400 hover:text-red-400 p-1 rounded hover:bg-slate-700 transition"
+                  title="Cerrar Sesión Google"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-500 animate-pulse"></span>
+                <span className="text-[11px] text-slate-300 font-medium">Drive offline</span>
+                <button
+                  onClick={handleGoogleLogin}
+                  disabled={isLoggingIn}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[11px] py-1 px-2.5 rounded flex items-center gap-1 transition disabled:opacity-50 cursor-pointer"
+                >
+                  <Lock className="w-3 h-3" />
+                  {isLoggingIn ? 'Conectando...' : 'Conectar Drive'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Container */}
+      <main className="flex-1 w-full max-w-7xl mx-auto px-6 py-6 md:py-8 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        {/* COLUMNA IZQUIERDA: Entrada de Transcripciones y Configuración */}
+        <section id="input-section" className="lg:col-span-5 flex flex-col gap-6">
+          
+          {/* Instrucciones de la Política */}
+          <div className="bg-white border-t-4 border-red-600 p-5 rounded shadow-sm border-x border-b border-slate-200 relative overflow-hidden">
+            <div className="absolute right-0 top-0 w-24 h-24 bg-gradient-to-br from-red-500/5 to-amber-500/5 rounded-full blur-2xl"></div>
+            <h2 className="font-display font-semibold text-xs tracking-wider text-red-600 uppercase flex items-center gap-2 mb-2.5">
+              <ShieldAlert className="w-4 h-4 text-red-600" />
+              PROTOCOLO DE CERO TOLERANCIA
+            </h2>
+            <p className="text-xs text-slate-600 leading-relaxed mb-3">
+              No se permite bajo ningún concepto entablar conversaciones comerciales, cotizar tarifas o redactar borradores contractuales con contrapartes sin antes completar en su totalidad el <strong className="text-slate-900">Checklist de KYC básico</strong>.
+            </p>
+            <div className="border-t border-slate-100 pt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-slate-500 font-mono">
+              <span className="flex items-center gap-1 text-emerald-600">🟢 Autorizado: Pedir documentación</span>
+              <span className="flex items-center gap-1 text-red-600">🔴 Prohibido: Discutir precios</span>
+            </div>
+          </div>
+
+          {/* Caja de Análisis de Transcripción */}
+          <div className="bg-white p-6 rounded border border-slate-200 shadow-sm flex flex-col gap-4">
+            <div className="flex justify-between items-center">
+              <h2 className="font-display font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-slate-500" />
+                Ingresar Conversación
+              </h2>
+              {transcript && (
+                <button 
+                  onClick={() => { setTranscript(''); setError(null); setCurrentResult(null); }}
+                  className="text-slate-400 hover:text-slate-600 text-xs font-semibold uppercase tracking-wider font-mono"
+                >
+                  Limpiar
+                </button>
+              )}
+            </div>
+
+            <p className="text-xs text-slate-500 -mt-2">
+              Pegue la transcripción del chat, llamada o correo electrónico que mantuviste con la contraparte para analizar el cumplimiento del protocolo.
+            </p>
+
+            <textarea
+              id="transcript-input"
+              value={transcript}
+              onChange={(e) => { setTranscript(e.target.value); if (error) setError(null); }}
+              placeholder="Ejemplo: 'Hola, soy Juan de la Empresa X. Queríamos saber sus tarifas mensuales y si nos pueden hacer descuento de una vez...'"
+              className="w-full h-64 p-4 border border-slate-200 rounded text-xs font-mono focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 bg-slate-50/50 resize-y"
+            />
+
+            {error && (
+              <div className="bg-red-50 text-red-800 text-xs p-3.5 rounded border border-red-200 flex items-start gap-2 animate-fadeIn">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                <p>{error}</p>
+              </div>
+            )}
+
+            <button
+              onClick={handleAnalyze}
+              disabled={isLoading || !transcript.trim()}
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider py-3 px-4 rounded flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+            >
+              {isLoading ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  Analizando Cumplimiento...
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  Verificar Compliance
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Casos de Prueba / Plantillas Rápidas */}
+          <div className="bg-white p-6 rounded border border-slate-200 shadow-sm flex flex-col gap-3">
+            <h3 className="font-display font-bold text-slate-800 text-xs uppercase tracking-wider">
+              Casos de Prueba Rápidos
+            </h3>
+            <p className="text-xs text-slate-500 -mt-1">
+              Prueba al instante con estos casos pre-configurados que ilustran escenarios reales:
+            </p>
+
+            <div className="flex flex-col gap-2 mt-1">
+              {mockTranscripts.map((tpl, i) => (
+                <button
+                  key={i}
+                  onClick={() => selectTemplate(tpl)}
+                  className="text-left p-3.5 rounded border border-slate-200 hover:border-slate-400 hover:bg-slate-50/50 transition group flex flex-col gap-1.5 cursor-pointer bg-white"
+                >
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-slate-800 group-hover:text-slate-950 font-display">
+                      {tpl.title}
+                    </span>
+                    <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                      tpl.expectedStatus === 'COMPLIANT' 
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
+                        : 'bg-red-100 text-red-800 border border-red-200'
+                    }`}>
+                      {tpl.expectedStatus === 'COMPLIANT' ? 'CONFORME' : 'BRECHA'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
+                    {tpl.description}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+        </section>
+
+        {/* COLUMNA DERECHA: Visor de Diagnóstico de Cumplimiento (KYC & Alerts) */}
+        <section id="results-section" className="lg:col-span-7 flex flex-col gap-6">
+          
+          {!currentResult ? (
+            /* Estado Vacío de Espera: Commercial Gatekeeper Locked */
+            <div className="bg-slate-100 rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-center p-8 py-14 relative overflow-hidden min-h-[550px] shadow-inner">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_0%,_rgba(0,0,0,0.02)_100%)]"></div>
+              
+              <div className="z-10 max-w-md">
+                <div className="w-16 h-16 bg-slate-200 text-slate-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-sm">
+                  <Lock className="w-8 h-8" />
+                </div>
+                <h3 className="text-sm font-bold text-slate-700 uppercase tracking-widest font-mono">Módulo Comercial Bloqueado</h3>
+                <h2 className="text-xl font-bold text-slate-900 mt-2 font-display">Esperando Análisis de Compliance</h2>
+                <p className="text-xs text-slate-500 mt-3 px-4 leading-relaxed">
+                  No se permite redactar ofertas, cotizar precios ni discutir términos contractuales hasta que el análisis de cumplimiento de la conversación de la contraparte sea ejecutado y aprobado.
+                </p>
+                
+                <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+                  <button disabled className="px-5 py-2 text-[11px] font-bold tracking-wider uppercase bg-slate-300 text-slate-500 rounded cursor-not-allowed opacity-60">
+                    GENERAR HOJA DE TÉRMINOS
+                  </button>
+                  <button disabled className="px-5 py-2 text-[11px] font-bold tracking-wider uppercase border border-slate-300 text-slate-400 rounded cursor-not-allowed opacity-60">
+                    RESERVAR LLAMADA DE VENTAS
+                  </button>
+                </div>
+              </div>
+              
+              <div className="mt-12 bg-red-50 border border-red-200 p-4 rounded text-left z-10 max-w-sm">
+                <p className="text-[10px] text-red-700 font-bold uppercase mb-1 font-mono tracking-wider">Alerta de Riesgo Operativo</p>
+                <p className="text-[11px] text-red-900 leading-relaxed italic">
+                  "Hasta que el Onboarding Checklist básico haya sido validado, cualquier intercambio de cotizaciones o tarifas está estrictamente prohibido bajo sanción disciplinaria."
+                </p>
+              </div>
+            </div>
+          ) : (
+            /* Diagnóstico Activo */
+            <div className="bg-white rounded border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+              
+              {/* Banner de Cumplimiento */}
+              {currentResult.isCompliant ? (
+                <div className="bg-emerald-50 text-emerald-800 border-b border-emerald-100 p-6 flex items-start gap-4">
+                  <div className="bg-emerald-600 text-white p-2.5 rounded shadow shrink-0">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="font-display font-bold text-sm tracking-wide text-emerald-950 flex items-center gap-2">
+                      ESTADO DE COMPLIANCE: CONFORME
+                      <span className="bg-emerald-200 text-emerald-900 text-[10px] font-mono px-2 py-0.5 rounded font-semibold uppercase border border-emerald-300">
+                        Aprobado
+                      </span>
+                    </h2>
+                    <p className="text-xs text-emerald-700/90 mt-1 leading-relaxed">
+                      Este intercambio de comunicación respeta estrictamente el protocolo. No se entablaron negociaciones de precios o contratos sustanciales antes de solicitar u obtener los requisitos KYC. Es seguro continuar el diálogo respetando las reglas de onboarding.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-rose-50 text-rose-800 border-b border-rose-100 p-6 flex items-start gap-4 animate-pulse">
+                  <div className="bg-rose-600 text-white p-2.5 rounded shadow shrink-0">
+                    <ShieldAlert className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="font-display font-bold text-sm tracking-wide text-rose-950 flex items-center gap-2">
+                      ESTADO DE COMPLIANCE: BRECHA DETECTADA
+                      <span className="bg-rose-200 text-rose-900 text-[10px] font-mono px-2 py-0.5 rounded font-semibold uppercase border border-rose-300">
+                        Crítico
+                      </span>
+                    </h2>
+                    <p className="text-xs text-rose-700/90 mt-1 leading-relaxed">
+                      <strong>¡Peligro de Incumplimiento!</strong> Se han detectado discusiones comerciales sustantivas (precios, ofertas de descuentos, cotizaciones o condiciones de contratos) antes de que el proceso de KYC básico fuera completado. Debe detener de inmediato las conversaciones de tarifas y regularizar la cuenta solicitando el Onboarding Checklist.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Contenido del Reporte */}
+              <div className="p-6 flex flex-col gap-6">
+                
+                {/* 1. Datos del Cliente / Contraparte */}
+                <div>
+                  <h3 className="font-display font-bold text-slate-800 text-xs uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <User className="w-4 h-4 text-slate-500" />
+                    Información de la Contraparte
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded border border-slate-200 text-xs">
+                    <div className="flex items-center gap-2.5">
+                      <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <div>
+                        <p className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold font-mono">Nombre de Contraparte</p>
+                        <p className="font-bold text-slate-800 mt-0.5">{currentResult.clientName}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <Building className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <div>
+                        <p className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold font-mono">Empresa / Organización</p>
+                        <p className="font-bold text-slate-800 mt-0.5">{currentResult.companyName}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <Globe className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <div>
+                        <p className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold font-mono">Jurisdicción de Origen</p>
+                        <p className="font-bold text-slate-800 mt-0.5">{currentResult.country}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <div>
+                        <p className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold font-mono">Cargo o Función</p>
+                        <p className="font-bold text-slate-800 mt-0.5">{currentResult.role}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2.5 md:col-span-2 border-t border-slate-200 pt-2.5 mt-1">
+                      <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <div>
+                        <p className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold font-mono font-mono">Datos de Contacto Extraídos</p>
+                        <p className="font-semibold text-slate-700 mt-0.5">{currentResult.contactInfo}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Checklist KYC */}
+                <div>
+                  <h3 className="font-display font-bold text-slate-800 text-xs uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-slate-500" />
+                    Checklist KYC Corporativo Obligatorio
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    
+                    <div className={`p-3.5 rounded border flex items-center justify-between ${
+                      currentResult.kycChecklist.identityEstablished 
+                        ? 'bg-emerald-50/50 border-emerald-200 text-emerald-950' 
+                        : 'bg-slate-50 border-slate-200 text-slate-500'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        {currentResult.kycChecklist.identityEstablished ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-slate-400 shrink-0" />
+                        )}
+                        <span className="text-xs font-medium">Identidad Legal Establecida</span>
+                      </div>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                        currentResult.kycChecklist.identityEstablished ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-slate-200 text-slate-600 border-slate-300'
+                      }`}>
+                        {currentResult.kycChecklist.identityEstablished ? 'SÍ' : 'NO'}
+                      </span>
+                    </div>
+
+                    <div className={`p-3.5 rounded border flex items-center justify-between ${
+                      currentResult.kycChecklist.ownershipVerified 
+                        ? 'bg-emerald-50/50 border-emerald-200 text-emerald-950' 
+                        : 'bg-slate-50 border-slate-200 text-slate-500'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        {currentResult.kycChecklist.ownershipVerified ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-slate-400 shrink-0" />
+                        )}
+                        <span className="text-xs font-medium">Propietarios Finales (UBO)</span>
+                      </div>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                        currentResult.kycChecklist.ownershipVerified ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-slate-200 text-slate-600 border-slate-300'
+                      }`}>
+                        {currentResult.kycChecklist.ownershipVerified ? 'SÍ' : 'NO'}
+                      </span>
+                    </div>
+
+                    <div className={`p-3.5 rounded border flex items-center justify-between ${
+                      currentResult.kycChecklist.businessActivityDefined 
+                        ? 'bg-emerald-50/50 border-emerald-200 text-emerald-950' 
+                        : 'bg-slate-50 border-slate-200 text-slate-500'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        {currentResult.kycChecklist.businessActivityDefined ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-slate-400 shrink-0" />
+                        )}
+                        <span className="text-xs font-medium">Actividad Comercial Definida</span>
+                      </div>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                        currentResult.kycChecklist.businessActivityDefined ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-slate-200 text-slate-600 border-slate-300'
+                      }`}>
+                        {currentResult.kycChecklist.businessActivityDefined ? 'SÍ' : 'NO'}
+                      </span>
+                    </div>
+
+                    <div className={`p-3.5 rounded border flex items-center justify-between ${
+                      currentResult.kycChecklist.riskAssessmentCompleted 
+                        ? 'bg-emerald-50/50 border-emerald-200 text-emerald-950' 
+                        : 'bg-slate-50 border-slate-200 text-slate-500'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        {currentResult.kycChecklist.riskAssessmentCompleted ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-slate-400 shrink-0" />
+                        )}
+                        <span className="text-xs font-medium">Análisis de Perfil de Riesgo</span>
+                      </div>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                        currentResult.kycChecklist.riskAssessmentCompleted ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-slate-200 text-slate-600 border-slate-300'
+                      }`}>
+                        {currentResult.kycChecklist.riskAssessmentCompleted ? 'SÍ' : 'NO'}
+                      </span>
+                    </div>
+
+                  </div>
+                </div>
+
+                {/* 3. Discusiones Comerciales Detectadas */}
+                <div className={`p-4 rounded border ${
+                  currentResult.commercialDiscussionsDetected 
+                    ? 'bg-red-50 border-red-200 text-red-950' 
+                    : 'bg-slate-50 border-slate-200 text-slate-600'
+                }`}>
+                  <h4 className="font-display font-bold text-xs uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                    {currentResult.commercialDiscussionsDetected ? (
+                      <AlertTriangle className="w-4 h-4 text-red-600" />
+                    ) : (
+                      <ShieldCheck className="w-4 h-4 text-slate-500" />
+                    )}
+                    Temas Comerciales Abordados
+                  </h4>
+                  <p className="text-xs leading-relaxed">
+                    {currentResult.commercialDetailsFound}
+                  </p>
+                </div>
+
+                {/* 4. Resumen y Plan de Acción */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h3 className="font-display font-bold text-slate-800 text-xs uppercase tracking-wider mb-2.5">
+                      Resumen de la Comunicación
+                    </h3>
+                    <div className="bg-slate-50 p-4 rounded border border-slate-200 text-xs leading-relaxed text-slate-600">
+                      {currentResult.summaryOfCall}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="font-display font-bold text-slate-800 text-xs uppercase tracking-wider mb-2.5">
+                      Plan de Acción y Regularización
+                    </h3>
+                    <ul className="flex flex-col gap-2">
+                      {currentResult.nextStepsRequired.map((step, index) => (
+                        <li key={index} className="flex items-start gap-2 text-xs">
+                          <ArrowRight className="w-3.5 h-3.5 text-indigo-500 shrink-0 mt-0.5" />
+                          <span className="text-slate-700 font-semibold">{step}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* 5. Acciones de Exportación */}
+                <div className="border-t border-slate-200 pt-6 flex flex-col gap-3">
+                  <h4 className="font-display font-bold text-slate-800 text-xs uppercase tracking-wider">
+                    Exportar Reporte de Compliance
+                  </h4>
+                  
+                  <div className="flex flex-wrap gap-3">
+                    {/* Google Docs Export */}
+                    {googleUser ? (
+                      <button
+                        onClick={handleExportToGoogleDoc}
+                        disabled={exportingDoc}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider py-2.5 px-4 rounded flex items-center gap-2 transition cursor-pointer disabled:opacity-50 shadow-sm"
+                      >
+                        {exportingDoc ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            Generando Google Doc...
+                          </>
+                        ) : (
+                          <>
+                            <PlusCircle className="w-3.5 h-3.5" />
+                            Exportar a Google Docs
+                          </>
+                        )}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleGoogleLogin}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase tracking-wider py-2.5 px-4 rounded border border-slate-200 flex items-center gap-2 transition cursor-pointer"
+                        title="Inicia sesión con Google para habilitar exportación a Google Docs"
+                      >
+                        <Lock className="w-3.5 h-3.5 text-slate-400" />
+                        Conectar Google Workspace para Exportar
+                      </button>
+                    )}
+
+                    {/* Descarga Offline */}
+                    <button
+                      onClick={handleDownloadLocalHTML}
+                      className="bg-slate-850 hover:bg-slate-900 text-white font-bold text-xs uppercase tracking-wider py-2.5 px-4 rounded flex items-center gap-2 transition cursor-pointer shadow-sm"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Descargar Reporte Offline (HTML)
+                    </button>
+                  </div>
+
+                  {/* Resultados de Exportación Google */}
+                  {exportedDocUrl && (
+                    <div className="bg-indigo-50 border border-indigo-150 text-indigo-950 p-4 rounded flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 animate-fadeIn">
+                      <div>
+                        <p className="text-xs font-bold text-indigo-900">¡Documento de Google creado con éxito!</p>
+                        <p className="text-[11px] text-indigo-700">Se guardó una copia estructurada del informe en su Google Drive corporativo.</p>
+                      </div>
+                      <a
+                        href={exportedDocUrl}
+                        target="_blank"
+                        rel="referrer"
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] uppercase tracking-wider py-1.5 px-3 rounded flex items-center gap-1.5 transition whitespace-nowrap"
+                      >
+                        Abrir Documento Google
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  )}
+
+                  {exportError && (
+                    <div className="bg-red-50 text-red-800 text-xs p-3.5 rounded border border-red-200">
+                      {exportError}
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            </div>
+          )}
+
+        </section>
+
+      </main>
+
+      {/* SECCIÓN INFERIOR: Directorio Local de Clientes Guardados */}
+      <section id="directory-section" className="w-full max-w-7xl mx-auto px-6 pb-12 mt-6">
+        <div className="bg-white p-6 rounded border border-slate-200 shadow-sm">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h2 className="font-display font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-2">
+                <History className="w-4 h-4 text-slate-500" />
+                Historial de Análisis Local de Contrapartes
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                Directorio persistente local de las contrapartes analizadas y su estado de cumplimiento.
+              </p>
+            </div>
+            {clients.length > 0 && (
+              <span className="text-xs bg-slate-50 text-slate-600 font-mono px-2 py-0.5 rounded border border-slate-200 font-semibold">
+                {clients.length} Contrapartes
+              </span>
+            )}
+          </div>
+
+          {clients.length === 0 ? (
+            <div className="text-center py-10 border border-dashed border-slate-200 rounded bg-slate-50/50">
+              <Clock className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+              <p className="text-xs text-slate-500">No hay contrapartes analizadas registradas en el historial local aún.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded border border-slate-250 shadow-sm">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 font-mono font-bold uppercase tracking-wider text-[10px]">
+                    <th className="py-3 px-4">Contraparte / Empresa</th>
+                    <th className="py-3 px-4">Jurisdicción</th>
+                    <th className="py-3 px-4">Análisis de Control</th>
+                    <th className="py-3 px-4">Estado Compliance</th>
+                    <th className="py-3 px-4">Fecha Análisis</th>
+                    <th className="py-3 px-4 text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {clients.map((record) => (
+                    <tr 
+                      key={record.id}
+                      onClick={() => loadClientFromHistory(record)}
+                      className="hover:bg-slate-50/80 cursor-pointer transition group"
+                    >
+                      <td className="py-3.5 px-4 font-semibold text-slate-800">
+                        <div>
+                          <p>{record.companyName}</p>
+                          <p className="text-[10px] text-slate-400 font-normal">{record.clientName} ({record.role})</p>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-600">{record.country}</td>
+                      <td className="py-3.5 px-4 text-slate-500">
+                        <div className="flex gap-1 text-[10px] font-mono">
+                          <span className={`px-1 py-0.5 rounded ${record.kycChecklist.identityEstablished ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>ID</span>
+                          <span className={`px-1 py-0.5 rounded ${record.kycChecklist.ownershipVerified ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>UBO</span>
+                          <span className={`px-1 py-0.5 rounded ${record.kycChecklist.businessActivityDefined ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>ACT</span>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 font-bold">
+                        {record.isCompliant ? (
+                          <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded font-mono font-bold uppercase tracking-wide">
+                            CONFORME
+                          </span>
+                        ) : (
+                          <span className="bg-red-100 text-red-800 text-[10px] px-2 py-0.5 rounded font-mono font-bold uppercase tracking-wide animate-pulse">
+                            VIOLACIÓN
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-500 text-[11px] font-mono">{record.analyzedAt}</td>
+                      <td className="py-3.5 px-4 text-right">
+                        <button
+                          onClick={(e) => deleteRecord(record.id, e)}
+                          className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-slate-100 transition inline-block opacity-0 group-hover:opacity-100"
+                          title="Eliminar de historial"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Footer corporativo */}
+      <footer className="bg-slate-950 text-slate-500 text-xs py-8 px-6 text-center border-t border-slate-900 font-sans mt-auto">
+        <p className="mb-1 font-semibold text-slate-400">KYC Compliance Automator v1.0</p>
+        <p className="max-w-md mx-auto text-[11px] leading-relaxed">
+          Este software cumple estrictamente con el Protocolo de Onboarding y Checklist de KYC Corporativo de Cero Tolerancia. Las auditorías automatizadas utilizan inteligencia de modelos avanzados de Google Gemini para mitigar riesgos legales, regulatorios y comerciales.
+        </p>
+      </footer>
+    </div>
+  );
+}
