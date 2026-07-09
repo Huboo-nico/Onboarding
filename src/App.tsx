@@ -870,18 +870,18 @@ export default function App() {
                   {showGoogleConfig && (
                     <div className="p-4 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600 flex flex-col gap-3 animate-fadeIn mb-2">
                       <div className="font-semibold text-slate-800 text-xs">
-                        Guía de Configuración para Dominios Propios o Vercel
+                        Guía de Configuración para Dominios Propios, Vercel o GitHub Pages
                       </div>
                       <p className="text-[11px] leading-relaxed">
-                        Para conectar tu Google Drive desde una app desplegada en un dominio personalizado o Vercel, debes usar tu propio <strong>Client ID de Google</strong>:
+                        Para conectar tu Google Drive desde una app desplegada fuera del entorno de desarrollo (como Vercel o GitHub Pages), debes usar tu propio <strong>ID de Cliente de Google</strong>:
                       </p>
                       <ol className="list-decimal pl-4 text-[11px] flex flex-col gap-1.5 text-slate-600">
                         <li>Ve a la <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-semibold">Consola de Google Cloud</a>.</li>
-                        <li>Crea o selecciona tu proyecto y ve a <strong>Credenciales</strong>.</li>
-                        <li>Haz clic en <strong>Crear credenciales</strong> &gt; <strong>ID de cliente de OAuth</strong> (Tipo de aplicación: <em>Aplicación web</em>).</li>
-                        <li>Agrega en <strong>Orígenes de JavaScript autorizados</strong>: <code className="bg-slate-200 px-1.5 py-0.5 rounded text-red-600 font-mono select-all text-[10px]">{window.location.origin}</code></li>
-                        <li>Agrega en <strong>URIs de redireccionamiento autorizados</strong>: <code className="bg-slate-200 px-1.5 py-0.5 rounded text-red-600 font-mono select-all text-[10px]">{window.location.origin}</code></li>
-                        <li>Copia el <strong>ID de cliente</strong> generado y pégalo abajo:</li>
+                        <li>Crea o selecciona tu proyecto de Google Cloud.</li>
+                        <li>Haz clic en <strong>Crear credenciales</strong> &gt; <strong>ID de cliente de OAuth</strong> (Elige <em>Aplicación web</em> como tipo de aplicación).</li>
+                        <li>Agrega en <strong>Orígenes de JavaScript autorizados</strong> este origen exacto (sin barras finales): <code className="bg-slate-200 px-1.5 py-0.5 rounded text-red-600 font-mono select-all text-[10px]">{window.location.origin}</code></li>
+                        <li>Agrega en <strong>URIs de redireccionamiento autorizados</strong> este valor exacto: <code className="bg-slate-200 px-1.5 py-0.5 rounded text-red-600 font-mono select-all text-[10px]">{window.location.href.split('#')[0].split('?')[0]}</code></li>
+                        <li>Haz clic en <strong>Guardar/Crear</strong>, copia el <strong>ID de cliente</strong> generado (un texto largo terminado en <em>.apps.googleusercontent.com</em>) y pégalo abajo:</li>
                       </ol>
 
                       <div className="flex flex-col gap-1.5 mt-2">
