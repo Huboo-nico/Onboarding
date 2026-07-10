@@ -34,9 +34,9 @@ Ejecutivo Comercial: Es muy sencillo. Necesitamos que nos compartas: 1) El regis
     title: "Caso 3: Caso Mixto (Información KYC Parcial con Brecha Comercial)",
     description: "El cliente proporciona algunos datos de identificación, pero el ejecutivo comercial cede ante la presión y comparte especificaciones de precios y comisiones antes de verificar la propiedad real.",
     expectedStatus: "BREACH",
-    text: `Ejecutivo Comercial: Hola Sofía, un gusto saludarte. Gracias por enviarme el número de registro fiscal de su empresa 'Tech Solutions SRL' en Chile.
+    text: `Ejecutivo Comercial: Hola Sofía, un gusto saludarte. Gracias por enviarme el número de registro fiscal o VAT de su empresa 'Tech Solutions SRL' que es ESB12345678 en España.
 Cliente (Sofía): Hola, sí, te lo mandé temprano para avanzar. Ya con eso estamos listos para cotizar, ¿verdad? Necesitamos saber cuánto nos cobrarían por la integración API de su software.
-Ejecutivo Comercial: Gracias Sofía, la identidad básica de la empresa está registrada. Aún nos falta verificar el esquema de beneficiarios finales (UBO) para completar el proceso de KYC obligatorio, pero ya tenemos un buen avance.
+Ejecutivo Comercial: Gracias Sofía, la identidad básica de la empresa está registrada con el VAT ESB12345678. Aún nos falta verificar el esquema de beneficiarios finales (UBO) para completar el proceso de KYC obligatorio, pero ya tenemos un buen avance.
 Cliente (Sofía): Excelente. Pero dime, ¿cuál es el costo aproximado del fee de integración? Necesito meterlo en el presupuesto que presento a mi junta directiva mañana por la mañana. Por favor, ayúdame con un dato estimado, no tiene que ser definitivo.
 Ejecutivo Comercial: Entiendo tu situación con la junta directiva... Mira, confidencialmente, el costo estándar de integración API es de $1,200 USD como pago único. Sin embargo, si cerramos la suscripción anual antes del fin de mes, puedo gestionar que se reduzca a $600 USD. Por favor, manéjalo de forma interna en tu junta mientras terminamos el proceso de KYC.
 Cliente (Sofía): ¡Muchas gracias! Con eso me salvas para la presentación de mañana.`

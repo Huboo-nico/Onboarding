@@ -568,15 +568,30 @@ export default function App() {
   const handleDownloadLocalHTML = () => {
     if (!currentResult) return;
 
-    const isCompliantText = currentResult.isCompliant ? 'CONFORME (SÍ)' : 'ALERTA DE INCUMPLIMIENTO (NO - BRECHA DE POLÍTICA)';
-    const severityText = currentResult.breachSeverity === 'CRITICAL' ? 'CRÍTICA' : 'NINGUNA';
+    const isCompliantText = currentResult.isCompliant ? 'COMPLIANT (YES)' : 'NON-COMPLIANT ALERT (NO - POLICY BREACH)';
+    const severityText = currentResult.breachSeverity === 'CRITICAL' ? 'CRITICAL' : 'NONE';
+
+    const taxIdHtml = currentResult.taxId && currentResult.taxId !== 'None' ? `
+        <div class="card" style="margin-bottom: 30px;">
+            <h3>6. Tax Identification & Registry Research (VAT/CIF/NIF)</h3>
+            <p><strong>Extracted Tax ID:</strong> ${currentResult.taxId}</p>
+            <div style="background-color: white; padding: 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-style: italic; font-size: 13px; margin-top: 10px; color: #475569;">
+                ${currentResult.taxIdResearch}
+            </div>
+        </div>
+    ` : `
+        <div class="card" style="margin-bottom: 30px; opacity: 0.75;">
+            <h3>6. Tax Identification & Registry Research (VAT/CIF/NIF)</h3>
+            <p>No NIF, CIF, or VAT tax registration numbers were identified in the conversation transcript for registry verification.</p>
+        </div>
+    `;
 
     const htmlContent = `
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Reporte KYC - ${currentResult.companyName}</title>
+    <title>KYC Compliance Report - ${currentResult.companyName}</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #1e293b; background-color: #f8fafc; padding: 40px; margin: 0; }
         .container { max-width: 800px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
@@ -594,50 +609,52 @@ export default function App() {
 </head>
 <body>
     <div class="container">
-        <h1>Informe de Cumplimiento de Compliance (KYC)</h1>
+        <h1>KYC Compliance Audit Report</h1>
         <div class="badge ${currentResult.isCompliant ? 'badge-success' : 'badge-error'}">
-            Estado de Cumplimiento: ${isCompliantText}
+            Compliance Status: ${isCompliantText}
         </div>
         
         <div class="grid">
             <div class="card">
-                <h3>1. Información de la Contraparte</h3>
-                <p><strong>Cliente:</strong> ${currentResult.clientName}</p>
-                <p><strong>Empresa:</strong> ${currentResult.companyName}</p>
-                <p><strong>Cargo:</strong> ${currentResult.role}</p>
-                <p><strong>País:</strong> ${currentResult.country}</p>
-                <p><strong>Contacto:</strong> ${currentResult.contactInfo}</p>
+                <h3>1. Counterparty General Information</h3>
+                <p><strong>Contact/Client:</strong> ${currentResult.clientName}</p>
+                <p><strong>Company Name:</strong> ${currentResult.companyName}</p>
+                <p><strong>Role / Title:</strong> ${currentResult.role}</p>
+                <p><strong>Country / Jurisdiction:</strong> ${currentResult.country}</p>
+                <p><strong>Contact Info:</strong> ${currentResult.contactInfo}</p>
             </div>
             
             <div class="card">
-                <h3>2. Checklist KYC de Control</h3>
-                <p><strong>Identidad Legal:</strong> ${currentResult.kycChecklist.identityEstablished ? '🟢 Verificado' : '❌ Pendiente'}</p>
-                <p><strong>Propiedad (UBO):</strong> ${currentResult.kycChecklist.ownershipVerified ? '🟢 Verificado' : '❌ Pendiente'}</p>
-                <p><strong>Propósito de Negocio:</strong> ${currentResult.kycChecklist.businessActivityDefined ? '🟢 Verificado' : '❌ Pendiente'}</p>
-                <p><strong>Análisis de Riesgo:</strong> ${currentResult.kycChecklist.riskAssessmentCompleted ? '🟢 Verificado' : '❌ Pendiente'}</p>
+                <h3>2. KYC Checklist Status</h3>
+                <p><strong>Legal Identity:</strong> ${currentResult.kycChecklist.identityEstablished ? '🟢 Verified' : '❌ Pending'}</p>
+                <p><strong>UBO Ownership:</strong> ${currentResult.kycChecklist.ownershipVerified ? '🟢 Verified' : '❌ Pending'}</p>
+                <p><strong>Business purpose:</strong> ${currentResult.kycChecklist.businessActivityDefined ? '🟢 Verified' : '❌ Pending'}</p>
+                <p><strong>Risk Assessment:</strong> ${currentResult.kycChecklist.riskAssessmentCompleted ? '🟢 Verified' : '❌ Pending'}</p>
             </div>
         </div>
 
         <div class="card" style="margin-bottom: 30px;">
-            <h3>3. Resumen de Temas Comerciales Discutidos</h3>
+            <h3>3. Summary of Commercial Topics Discussed</h3>
             <p>${currentResult.commercialDetailsFound}</p>
-            <p><strong>Gravedad de la Alerta:</strong> ${severityText}</p>
+            <p><strong>Alert Severity Level:</strong> ${severityText}</p>
         </div>
 
         <div class="card" style="margin-bottom: 30px;">
-            <h3>4. Próximos Pasos de Regularización Obligatorios</h3>
+            <h3>4. Mandatory Regularization Next Steps</h3>
             <ul>
                 ${currentResult.nextStepsRequired.map(step => `<li>${step}</li>`).join('')}
             </ul>
         </div>
 
-        <div class="card">
-            <h3>5. Resumen de la Conversación</h3>
+        <div class="card" style="margin-bottom: 30px;">
+            <h3>5. Conversation Summary</h3>
             <p>${currentResult.summaryOfCall}</p>
         </div>
 
+        ${taxIdHtml}
+
         <div class="footer">
-            Generado automáticamente por KYC Compliance Automator - Sistema de Seguridad Corporativo de Tolerancia Cero.
+            Automatically generated by KYC Compliance Automator - Corporate Zero-Tolerance Security Protocol.
         </div>
     </div>
 </body>
@@ -648,7 +665,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Reporte_KYC_${currentResult.companyName.replace(/\s+/g, '_')}.html`;
+    link.download = `KYC_Compliance_Report_${currentResult.companyName.replace(/\s+/g, '_')}.html`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1181,6 +1198,33 @@ export default function App() {
                     </div>
 
                   </div>
+                </div>
+
+                {/* Identificación Fiscal & Research */}
+                <div className="bg-slate-50 border border-slate-200 rounded p-4">
+                  <h3 className="font-display font-bold text-slate-800 text-xs uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                    <Building className="w-4 h-4 text-indigo-600" />
+                    Identificación Fiscal & Verificación de Registro (CIF / NIF / VAT)
+                  </h3>
+                  {currentResult.taxId && currentResult.taxId !== 'None' ? (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded font-mono">
+                          ID Fiscal: {currentResult.taxId}
+                        </span>
+                        <span className="text-[10px] bg-indigo-100 text-indigo-800 border border-indigo-200 px-2 py-0.5 rounded font-bold font-mono">
+                          RESEARCH ACTIVE
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-600 bg-white p-3 rounded border border-slate-200 leading-relaxed font-sans italic">
+                        {currentResult.taxIdResearch}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500 italic">
+                      No se detectó ningún número de identificación fiscal (CIF, NIF, o VAT) en la conversación para realizar la investigación automática.
+                    </p>
+                  )}
                 </div>
 
                 {/* 3. Discusiones Comerciales Detectadas */}

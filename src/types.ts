@@ -18,6 +18,8 @@ export interface KYCAnalysisResult {
   breachSeverity: 'NONE' | 'CRITICAL';
   summaryOfCall: string;
   nextStepsRequired: string[];
+  taxId?: string;
+  taxIdResearch?: string;
 }
 
 export interface ClientRecord extends KYCAnalysisResult {

@@ -196,7 +196,10 @@ Tu rol:
 3. Detectar si se ha discutido cualquier asunto comercial sustancial (precios, tarifas, contratos, descuentos, términos, SLA, propuestas formales, planes de implementación con valor comercial o entrega de servicios/productos).
 4. Determinar la COMPATIBILIDAD CON LA POLÍTICA: si se detectó discusión comercial SUSTANCIAL pero el KYC básico NO estaba completado, es una violación de política CRÍTICA (isCompliant: false, breachSeverity: "CRITICAL").
 5. Si no hubo discusiones comerciales, o si el KYC básico se completó antes de cualquier oferta, se considera conforme (isCompliant: true, breachSeverity: "NONE").
-6. Redactar un resumen y los próximos pasos detallados para regularizar la situación del cliente.`;
+6. Identificar si se menciona algún identificador fiscal como CIF, NIF, o número de VAT (IVA) de la empresa o cliente. Si se encuentra:
+   a. Extráelo tal cual.
+   b. Realiza una breve investigación de validación sintáctica y de formato basada en tu conocimiento corporativo, especificando el país correspondiente (por ejemplo, España para CIF/NIF que comienzan con letras, de la Unión Europea para prefijos de países VAT como ES, FR, DE, etc.), la validez potencial del formato y un breve resumen corporativo de esa entidad si coincide con una compañía real.
+7. OBLIGATORIO: Todas las justificaciones detalladas, resúmenes, descripciones comerciales, próximos pasos e investigaciones de impuestos (campos: "commercialDetailsFound", "summaryOfCall", "nextStepsRequired" y "taxIdResearch") DEBEN estar redactados íntegramente en INGLÉS para presentación corporativa internacional.`;
 
     let lastError: any = null;
     let result: any = null;
@@ -221,39 +224,42 @@ Tu rol:
             responseSchema: {
               type: Type.OBJECT,
               properties: {
-                clientName: { type: Type.STRING, description: "Nombre completo de la persona/contacto. 'Unknown' si no se menciona." },
-                companyName: { type: Type.STRING, description: "Nombre de la empresa de la contraparte. 'Unknown' si no se menciona." },
-                role: { type: Type.STRING, description: "Cargo o rol del contacto. 'Unknown' si no se menciona." },
-                country: { type: Type.STRING, description: "País o región de operación. 'Unknown' si no se menciona." },
-                contactInfo: { type: Type.STRING, description: "Detalles de contacto (email, teléfono). 'Unknown' si no se menciona." },
+                clientName: { type: Type.STRING, description: "Full name of the person/contact. 'Unknown' if not mentioned." },
+                companyName: { type: Type.STRING, description: "Name of the counterparty's company. 'Unknown' if not mentioned." },
+                role: { type: Type.STRING, description: "Title or role of the contact. 'Unknown' if not mentioned." },
+                country: { type: Type.STRING, description: "Country or region of operation. 'Unknown' if not mentioned." },
+                contactInfo: { type: Type.STRING, description: "Contact details (email, phone). 'Unknown' if not mentioned." },
                 
                 kycChecklist: {
                   type: Type.OBJECT,
                   properties: {
-                    identityEstablished: { type: Type.BOOLEAN, description: "Indica si se obtuvo y verificó la identidad legal de la empresa o persona (ej. registro legal, ID)." },
-                    ownershipVerified: { type: Type.BOOLEAN, description: "Indica si se obtuvieron o verificaron los Beneficiarios Finales (UBO - Ultimate Beneficial Owners)." },
-                    businessActivityDefined: { type: Type.BOOLEAN, description: "Indica si la actividad de negocio y el propósito de la relación quedaron establecidos formalmente." },
-                    riskAssessmentCompleted: { type: Type.BOOLEAN, description: "Indica si se pudo hacer un análisis básico de riesgo (ej. país de alto riesgo o PEPs)." }
+                    identityEstablished: { type: Type.BOOLEAN, description: "Whether the legal identity of the company/person was obtained and verified." },
+                    ownershipVerified: { type: Type.BOOLEAN, description: "Whether Ultimate Beneficial Owners (UBO) have been obtained or verified." },
+                    businessActivityDefined: { type: Type.BOOLEAN, description: "Whether the business purpose and activity have been formally defined." },
+                    riskAssessmentCompleted: { type: Type.BOOLEAN, description: "Whether a basic risk profiling/PEP check was completed." }
                   },
                   required: ["identityEstablished", "ownershipVerified", "businessActivityDefined", "riskAssessmentCompleted"]
                 },
                 
-                commercialDiscussionsDetected: { type: Type.BOOLEAN, description: "Indica si se detectó alguna conversación sobre precios, tarifas, condiciones de pago, cotizaciones, o detalles comerciales confidenciales." },
-                commercialDetailsFound: { type: Type.STRING, description: "Detalles específicos de los temas comerciales abordados en la conversación. 'Ninguno' si no aplica." },
-                isCompliant: { type: Type.BOOLEAN, description: "Indica si la conversación cumple con la regla de cero tolerancia (es decir, NO se hablaron de temas comerciales a menos que el KYC esté completamente verificado)." },
-                breachSeverity: { type: Type.STRING, description: "Gravedad de la brecha. Debe ser 'NONE' (conforme) o 'CRITICAL' (si se violó la política de cero tolerancia)." },
+                commercialDiscussionsDetected: { type: Type.BOOLEAN, description: "Whether any discussions regarding prices, fees, payment terms, or custom коммерческий quotes were detected." },
+                commercialDetailsFound: { type: Type.STRING, description: "Specific details of commercial topics discussed. MUST be in English. 'None' if not applicable." },
+                isCompliant: { type: Type.BOOLEAN, description: "Whether the call was compliant with the Corporate Zero Tolerance policy (no commercial talk before KYC completes)." },
+                breachSeverity: { type: Type.STRING, description: "Severity of the breach. Must be 'NONE' (compliant) or 'CRITICAL' (if Zero Tolerance policy was breached)." },
                 
-                summaryOfCall: { type: Type.STRING, description: "Breve resumen de la conversación de 2 o 3 líneas enfocándose en el cumplimiento." },
+                summaryOfCall: { type: Type.STRING, description: "Brief audit summary of the conversation (2-3 sentences), focusing on compliance aspects. MUST be in English." },
                 nextStepsRequired: { 
                   type: Type.ARRAY, 
                   items: { type: Type.STRING },
-                  description: "Lista de 3 a 5 acciones inmediatas requeridas para regularizar al cliente y seguir el protocolo de cumplimiento."
-                }
+                  description: "List of 3 to 5 immediate actions required to bring the client into full compliance. MUST be in English."
+                },
+                taxId: { type: Type.STRING, description: "Extracted CIF, NIF, or VAT tax registration number if found. Set to 'None' if not present." },
+                taxIdResearch: { type: Type.STRING, description: "Brief format/validity research and country check based on the tax identifier found. MUST be in English. 'No VAT/CIF/NIF tax identifier found in the transcript.' if not applicable." }
               },
               required: [
                 "clientName", "companyName", "role", "country", "contactInfo", 
                 "kycChecklist", "commercialDiscussionsDetected", "commercialDetailsFound", 
-                "isCompliant", "breachSeverity", "summaryOfCall", "nextStepsRequired"
+                "isCompliant", "breachSeverity", "summaryOfCall", "nextStepsRequired",
+                "taxId", "taxIdResearch"
               ]
             }
           }
@@ -279,13 +285,13 @@ Tu rol:
           contents: `Analiza la siguiente conversación/transcripción de llamada:
 "${transcript}"
 
-Debes devolver obligatoriamente un objeto JSON plano que cumpla exactamente con esta estructura:
+Debes devolver obligatoriamente un objeto JSON plano que cumpla exactamente con esta estructura y con todos los detalles redactados en INGLÉS:
 {
-  "clientName": "Nombre de la persona o 'Unknown'",
-  "companyName": "Nombre de la empresa o 'Unknown'",
-  "role": "Cargo o 'Unknown'",
-  "country": "País o 'Unknown'",
-  "contactInfo": "Email/teléfono o 'Unknown'",
+  "clientName": "Contact name or 'Unknown'",
+  "companyName": "Company name or 'Unknown'",
+  "role": "Role or 'Unknown'",
+  "country": "Country or 'Unknown'",
+  "contactInfo": "Email/phone or 'Unknown'",
   "kycChecklist": {
     "identityEstablished": true/false,
     "ownershipVerified": true/false,
@@ -293,11 +299,13 @@ Debes devolver obligatoriamente un objeto JSON plano que cumpla exactamente con 
     "riskAssessmentCompleted": true/false
   },
   "commercialDiscussionsDetected": true/false,
-  "commercialDetailsFound": "detalles o 'Ninguno'",
+  "commercialDetailsFound": "details of commercial talks in English or 'None'",
   "isCompliant": true/false,
-  "breachSeverity": "NONE" o "CRITICAL",
-  "summaryOfCall": "resumen breve",
-  "nextStepsRequired": ["acción 1", "acción 2", "acción 3"]
+  "breachSeverity": "NONE" or "CRITICAL",
+  "summaryOfCall": "brief audit summary in English",
+  "nextStepsRequired": ["action 1 in English", "action 2 in English"],
+  "taxId": "extracted VAT/CIF/NIF or 'None'",
+  "taxIdResearch": "brief research analysis of tax number in English"
 }`,
           config: {
             systemInstruction,
