@@ -12,19 +12,40 @@ const PORT = 3000;
 // JSON parsing middleware
 app.use(express.json());
 
-// Initialize Gemini SDK with telemetry header
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    }
+// Lazy-initialize Gemini SDK to prevent startup crashes when GEMINI_API_KEY is missing
+let aiInstance: GoogleGenAI | null = null;
+
+function getGeminiClient(): GoogleGenAI {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "Falta la variable de entorno GEMINI_API_KEY. Por favor, accede a tu panel de control de Vercel (Ajustes > Environment Variables) y añade GEMINI_API_KEY con tu clave de API de Gemini."
+    );
   }
-});
+  
+  if (!aiInstance) {
+    aiInstance = new GoogleGenAI({
+      apiKey: apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
+  }
+  return aiInstance;
+}
 
 // API Health check
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok" });
+});
+
+// Config Status check
+app.get("/api/config-status", (req, res) => {
+  res.json({
+    hasGeminiKey: !!process.env.GEMINI_API_KEY,
+  });
 });
 
 // Analysis endpoint using Gemini 3.5 Flash with structured JSON output
@@ -34,6 +55,8 @@ app.post("/api/analyze", async (req, res) => {
       if (!transcript || typeof transcript !== "string") {
         return res.status(400).json({ error: "El contenido de la conversación es requerido." });
       }
+
+      const ai = getGeminiClient();
 
       const systemInstruction = `Eres un Oficial de Cumplimiento Normativo (Compliance Officer) corporativo de alta prioridad.
 Tu tarea es analizar detalladamente el texto de una conversación/comunicación entre un miembro del equipo comercial y un tercero (cliente, socio, proveedor, etc.) según la política estricta de CERO TOLERANCIA de la empresa.

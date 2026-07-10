@@ -225,8 +225,28 @@ export default function App() {
       });
 
       if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'No se pudo comunicar con el servidor de análisis.');
+        let errorMessage = 'No se pudo comunicar con el servidor de análisis.';
+        try {
+          const errText = await response.text();
+          try {
+            const errData = JSON.parse(errText);
+            if (errData && errData.error) {
+              errorMessage = errData.error;
+            }
+          } catch (jsonErr) {
+            // Response was not JSON (e.g. Vercel serverless function crash returning HTML)
+            if (response.status === 500 || response.status === 502 || response.status === 504) {
+              errorMessage = `Error del servidor de Vercel (Estado ${response.status}). Esto ocurre usualmente si no has configurado la variable de entorno GEMINI_API_KEY en tu panel de Vercel. Por favor, asegúrate de añadir GEMINI_API_KEY en Vercel > Settings > Environment Variables.`;
+            } else if (errText && errText.length < 200) {
+              errorMessage = `Error del servidor (${response.status}): ${errText}`;
+            } else {
+              errorMessage = `Error de comunicación (${response.status}). Es probable que falte configurar GEMINI_API_KEY en las variables de entorno de tu proyecto en Vercel.`;
+            }
+          }
+        } catch (readErr) {
+          errorMessage = `No se pudo conectar con el servidor (Estado ${response.status}).`;
+        }
+        throw new Error(errorMessage);
       }
 
       const result: KYCAnalysisResult = await response.json();
@@ -525,9 +545,25 @@ export default function App() {
             />
 
             {error && (
-              <div className="bg-red-50 text-red-800 text-xs p-3.5 rounded border border-red-200 flex items-start gap-2 animate-fadeIn">
-                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                <p>{error}</p>
+              <div className="bg-red-50 text-red-800 text-xs p-4 rounded border border-red-200 flex flex-col gap-2.5 animate-fadeIn">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
+                  <p className="font-semibold text-red-950">{error}</p>
+                </div>
+                {error.includes('GEMINI_API_KEY') && (
+                  <div className="text-[11px] bg-white/70 p-3 rounded border border-red-100 flex flex-col gap-1.5 text-slate-700 font-sans mt-0.5">
+                    <div className="font-bold text-red-900">Pasos para solucionar el error de API en Vercel:</div>
+                    <ol className="list-decimal pl-4 flex flex-col gap-1.5 text-slate-600">
+                      <li>Abre el panel de tu proyecto en <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-semibold">Vercel</a>.</li>
+                      <li>Ve a la pestaña <strong>Settings</strong> (Ajustes) en la parte superior.</li>
+                      <li>Haz clic en la sección <strong>Environment Variables</strong> (Variables de entorno) a la izquierda.</li>
+                      <li>Crea una nueva variable con la clave: <code className="bg-slate-200 px-1 py-0.5 rounded text-red-600 font-mono font-bold select-all">GEMINI_API_KEY</code></li>
+                      <li>Pega el valor de tu API Key de Gemini en el campo de valor.</li>
+                      <li>Haz clic en <strong>Save</strong> (Guardar) para guardarla.</li>
+                      <li><em>¡Importante!</em> Ve a la pestaña <strong>Deployments</strong> (Despliegues) de tu proyecto en Vercel, haz clic en los tres puntos de tu último despliegue y selecciona <strong>Redeploy</strong> (Redesplegar) para que los cambios surtan efecto.</li>
+                    </ol>
+                  </div>
+                )}
               </div>
             )}
 
