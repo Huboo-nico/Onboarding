@@ -79,6 +79,7 @@ export default function App() {
   const [customGeminiKey, setCustomGeminiKey] = useState<string>('');
   const [showCustomGeminiInput, setShowCustomGeminiInput] = useState<boolean>(false);
   const [testingConnection, setTestingConnection] = useState<boolean>(false);
+  const [testingConnectionKey, setTestingConnectionKey] = useState<1 | 2 | null>(null);
   const [connectionResult, setConnectionResult] = useState<{
     success: boolean;
     model?: string;
@@ -86,8 +87,9 @@ export default function App() {
     error?: string;
   } | null>(null);
 
-  const testGeminiConnection = async () => {
+  const testGeminiConnection = async (keyIndex: 1 | 2 = 1) => {
     setTestingConnection(true);
+    setTestingConnectionKey(keyIndex);
     setConnectionResult(null);
     try {
       const savedKey = localStorage.getItem('custom_gemini_api_key') || '';
@@ -97,6 +99,7 @@ export default function App() {
           'Content-Type': 'application/json',
           'x-gemini-key': savedKey,
         },
+        body: JSON.stringify({ keyIndex }),
       });
 
       const contentType = response.headers.get('content-type') || '';
@@ -112,13 +115,17 @@ export default function App() {
         setConnectionResult({
           success: true,
           model: data.model,
-          message: data.message || 'Conexión exitosa con Gemini.',
+          message: data.message || `Conexión exitosa con la Clave ${keyIndex} de Gemini.`,
         });
-        setHasGeminiKey(true);
+        if (keyIndex === 1) {
+          setHasGeminiKey(true);
+        } else {
+          setHasGeminiKey2(true);
+        }
       } else {
         setConnectionResult({
           success: false,
-          error: data.error || 'Error de autenticación o conexión.',
+          error: data.error || `Error de autenticación o conexión con la Clave ${keyIndex}.`,
         });
       }
     } catch (err: any) {
@@ -134,6 +141,7 @@ export default function App() {
       });
     } finally {
       setTestingConnection(false);
+      setTestingConnectionKey(null);
     }
   };
 
@@ -814,37 +822,53 @@ export default function App() {
 
             {/* Vercel Server Diagnostics Status Card */}
             <div className="p-3.5 bg-slate-50 border border-slate-200 rounded text-xs flex flex-col gap-2.5">
-              <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-start">
-                <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-3">
+                {/* Key 1 Status & Test Button */}
+                <div className="flex justify-between items-center bg-white p-2 rounded border border-slate-100 shadow-xs">
                   <span className="font-semibold text-slate-700 flex items-center gap-1.5">
                     <span className={`w-2 h-2 rounded-full ${hasGeminiKey === null ? 'bg-amber-400 animate-pulse' : hasGeminiKey ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                     Clave Principal (Key 1): {hasGeminiKey === null ? 'Comprobando...' : hasGeminiKey ? '🟢 Detectada' : '🔴 NO Detectada'}
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => testGeminiConnection(1)}
+                    disabled={testingConnection}
+                    className="text-indigo-600 hover:text-indigo-800 font-bold uppercase text-[9px] font-mono flex items-center gap-1 cursor-pointer disabled:opacity-50 px-2 py-1 bg-indigo-50 hover:bg-indigo-100 rounded transition"
+                    title="Probar conexión real de la Clave Principal"
+                  >
+                    {testingConnectionKey === 1 ? 'Probando...' : 'Probar'}
+                  </button>
+                </div>
+
+                {/* Key 2 Status & Test Button */}
+                <div className="flex justify-between items-center bg-white p-2 rounded border border-slate-100 shadow-xs">
                   <span className="font-semibold text-slate-700 flex items-center gap-1.5">
                     <span className={`w-2 h-2 rounded-full ${hasGeminiKey2 === null ? 'bg-amber-400 animate-pulse' : hasGeminiKey2 ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                    Clave Secundaria (Key 2 / Respaldo): {hasGeminiKey2 === null ? 'Comprobando...' : hasGeminiKey2 ? '🟢 Detectada (Failover Activo)' : '⚪ No Configurada'}
+                    Clave Secundaria (Key 2): {hasGeminiKey2 === null ? 'Comprobando...' : hasGeminiKey2 ? '🟢 Detectada (Respaldo Activo)' : '⚪ No Configurada'}
                   </span>
-                </div>
-                <div className="flex items-center gap-2 mt-1 sm:mt-0 shrink-0">
-                  <button
-                    type="button"
-                    onClick={testGeminiConnection}
-                    disabled={testingConnection}
-                    className="text-indigo-600 hover:text-indigo-800 font-bold uppercase text-[9px] font-mono flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                    title="Realizar una prueba de conexión real enviando un mensaje de prueba a Gemini"
-                  >
-                    {testingConnection ? 'Probando...' : 'Probar Conexión'}
-                  </button>
-                  <span className="text-slate-300">|</span>
-                  <button
-                    type="button"
-                    onClick={checkConfigStatus}
-                    disabled={checkingConfig}
-                    className="text-indigo-600 hover:text-indigo-800 font-bold uppercase text-[9px] font-mono flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-3 h-3 ${checkingConfig ? 'animate-spin' : ''}`} />
-                    {checkingConfig ? 'Verificando...' : 'Comprobar'}
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    {hasGeminiKey2 && (
+                      <button
+                        type="button"
+                        onClick={() => testGeminiConnection(2)}
+                        disabled={testingConnection}
+                        className="text-indigo-600 hover:text-indigo-800 font-bold uppercase text-[9px] font-mono flex items-center gap-1 cursor-pointer disabled:opacity-50 px-2 py-1 bg-indigo-50 hover:bg-indigo-100 rounded transition"
+                        title="Probar conexión real de la Clave Secundaria"
+                      >
+                        {testingConnectionKey === 2 ? 'Probando...' : 'Probar'}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={checkConfigStatus}
+                      disabled={checkingConfig}
+                      className="text-indigo-600 hover:text-indigo-800 font-bold uppercase text-[9px] font-mono flex items-center gap-1 cursor-pointer disabled:opacity-50 px-2 py-1 bg-indigo-50 hover:bg-indigo-100 rounded transition"
+                      title="Actualizar estado de configuración"
+                    >
+                      <RefreshCw className={`w-2.5 h-2.5 ${checkingConfig ? 'animate-spin' : ''}`} />
+                      {checkingConfig ? '...' : 'Comprobar'}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -933,6 +957,27 @@ export default function App() {
                       <li>Ve a tu proyecto en <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-semibold">Vercel</a> y entra a la pestaña <strong>Deployments</strong>.</li>
                       <li>Busca tu último despliegue (el que está activo), haz clic en los <strong>tres puntos (...)</strong> de la derecha y selecciona <strong>Redeploy</strong>.</li>
                       <li>Una vez que termine el despliegue (tarda unos 30 segundos), haz clic en el botón <strong>"Comprobar"</strong> de aquí arriba.</li>
+                    </ol>
+                  </div>
+                </div>
+              )}
+
+              {hasGeminiKey2 === false && (
+                <div className="text-[11px] text-slate-600 space-y-1.5 border-t border-slate-100 pt-2.5 animate-fadeIn">
+                  <p className="font-medium text-slate-700">⚪ Clave Secundaria (Key 2 / Respaldo) no configurada en Vercel.</p>
+                  <p className="leading-relaxed">
+                    Se recomienda configurar <code className="bg-slate-200 px-1 py-0.5 rounded text-indigo-600 font-mono font-bold">GEMINI_API_KEY_2</code> como <strong>gemini-3.5-flash</strong> para actuar como respaldo automático contra límites de cuota (failover).
+                  </p>
+                  <div className="bg-white p-2.5 rounded border border-slate-100 mt-1">
+                    <div className="font-bold text-slate-800 text-[10px] mb-1">Pasos para configurar la API Key 2 en Vercel:</div>
+                    <ol className="list-decimal pl-4 text-[10px] space-y-1.5 text-slate-500">
+                      <li>Abre tu proyecto en <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-semibold">Vercel</a>.</li>
+                      <li>Ve a la pestaña <strong>Settings</strong> (Ajustes) en la parte superior.</li>
+                      <li>Haz clic en la sección <strong>Environment Variables</strong> (Variables de entorno) a la izquierda.</li>
+                      <li>Crea una nueva variable con la clave: <code className="bg-slate-200 px-1 py-0.5 rounded text-indigo-600 font-mono font-bold select-all">GEMINI_API_KEY_2</code></li>
+                      <li>Pega tu clave de API de Gemini de respaldo en el campo de valor.</li>
+                      <li>Haz clic en <strong>Save</strong> (Guardar).</li>
+                      <li><strong>¡Importante!</strong> Ve a la pestaña <strong>Deployments</strong>, haz clic en los <strong>tres puntos (...)</strong> de tu último despliegue y selecciona <strong>Redeploy</strong> (Redesplegar) para aplicar la nueva clave de respaldo.</li>
                     </ol>
                   </div>
                 </div>

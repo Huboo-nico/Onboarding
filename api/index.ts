@@ -120,7 +120,8 @@ app.get("/api/config-status", (req, res) => {
 app.post("/api/test-key", async (req, res) => {
   try {
     const customKey = req.headers['x-gemini-key'] as string;
-    const ai = getGeminiClient(customKey);
+    const keyIndex = req.body?.keyIndex === 2 ? 2 : 1;
+    const ai = getGeminiClient(customKey, keyIndex);
 
     const modelsToTry = [
       "gemini-3.5-flash",
