@@ -66,7 +66,7 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
 // Start Google Direct OAuth Implicit sign-in flow (robust fallback for custom domains like Vercel)
 export const googleSignInDirect = (customClientId?: string) => {
   const clientId = customClientId || 
-                   ((import.meta as any).env?.VITE_GOOGLE_CLIENT_ID as string) || 
+                   import.meta.env.VITE_GOOGLE_CLIENT_ID || 
                    firebaseConfig.oAuthClientId || 
                    '507166952584-4plde32qf2n7g3dvgu2d3phnbhupb9go.apps.googleusercontent.com';
   const redirectUri = window.location.href.split('#')[0].split('?')[0];

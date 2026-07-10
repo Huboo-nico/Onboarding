@@ -60,7 +60,7 @@ export default function App() {
     setIsWorkspaceConfigured(!isUsingPlaceholder());
 
     // Load custom Google Client ID if saved
-    const savedClientId = localStorage.getItem('custom_google_client_id') || ((import.meta as any).env?.VITE_GOOGLE_CLIENT_ID as string) || '';
+    const savedClientId = localStorage.getItem('custom_google_client_id') || import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
     if (savedClientId) {
       setCustomGoogleClientId(savedClientId);
     }
