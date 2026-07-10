@@ -84,56 +84,139 @@ Tu rol:
 5. Si no hubo discusiones comerciales, o si el KYC básico se completó antes de cualquier oferta, se considera conforme (isCompliant: true, breachSeverity: "NONE").
 6. Redactar un resumen y los próximos pasos detallados para regularizar la situación del cliente.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: `Analiza la siguiente conversación/transcripción de llamada:
+      let lastError: any = null;
+      let result: any = null;
+
+      // List of candidate models to try in descending order of capability/preference
+      const modelsToTry = [
+        "gemini-3.5-flash",
+        "gemini-flash-latest",
+        "gemini-3.1-flash-lite"
+      ];
+
+      for (const modelName of modelsToTry) {
+        try {
+          console.log(`[Gemini API] Intentando análisis con modelo: ${modelName}`);
+          const response = await ai.models.generateContent({
+            model: modelName,
+            contents: `Analiza la siguiente conversación/transcripción de llamada:
 "${transcript}"`,
-        config: {
-          systemInstruction,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              clientName: { type: Type.STRING, description: "Nombre completo de la persona/contacto. 'Unknown' si no se menciona." },
-              companyName: { type: Type.STRING, description: "Nombre de la empresa de la contraparte. 'Unknown' si no se menciona." },
-              role: { type: Type.STRING, description: "Cargo o rol del contacto. 'Unknown' si no se menciona." },
-              country: { type: Type.STRING, description: "País o región de operación. 'Unknown' si no se menciona." },
-              contactInfo: { type: Type.STRING, description: "Detalles de contacto (email, teléfono). 'Unknown' si no se menciona." },
-              
-              kycChecklist: {
+            config: {
+              systemInstruction,
+              responseMimeType: "application/json",
+              responseSchema: {
                 type: Type.OBJECT,
                 properties: {
-                  identityEstablished: { type: Type.BOOLEAN, description: "Indica si se obtuvo y verificó la identidad legal de la empresa o persona (ej. registro legal, ID)." },
-                  ownershipVerified: { type: Type.BOOLEAN, description: "Indica si se obtuvieron o verificaron los Beneficiarios Finales (UBO - Ultimate Beneficial Owners)." },
-                  businessActivityDefined: { type: Type.BOOLEAN, description: "Indica si la actividad de negocio y el propósito de la relación quedaron establecidos formalmente." },
-                  riskAssessmentCompleted: { type: Type.BOOLEAN, description: "Indica si se pudo hacer un análisis básico de riesgo (ej. país de alto riesgo o PEPs)." }
+                  clientName: { type: Type.STRING, description: "Nombre completo de la persona/contacto. 'Unknown' si no se menciona." },
+                  companyName: { type: Type.STRING, description: "Nombre de la empresa de la contraparte. 'Unknown' si no se menciona." },
+                  role: { type: Type.STRING, description: "Cargo o rol del contacto. 'Unknown' si no se menciona." },
+                  country: { type: Type.STRING, description: "País o región de operación. 'Unknown' si no se menciona." },
+                  contactInfo: { type: Type.STRING, description: "Detalles de contacto (email, teléfono). 'Unknown' si no se menciona." },
+                  
+                  kycChecklist: {
+                    type: Type.OBJECT,
+                    properties: {
+                      identityEstablished: { type: Type.BOOLEAN, description: "Indica si se obtuvo y verificó la identidad legal de la empresa o persona (ej. registro legal, ID)." },
+                      ownershipVerified: { type: Type.BOOLEAN, description: "Indica si se obtuvieron o verificaron los Beneficiarios Finales (UBO - Ultimate Beneficial Owners)." },
+                      businessActivityDefined: { type: Type.BOOLEAN, description: "Indica si la actividad de negocio y el propósito de la relación quedaron establecidos formalmente." },
+                      riskAssessmentCompleted: { type: Type.BOOLEAN, description: "Indica si se pudo hacer un análisis básico de riesgo (ej. país de alto riesgo o PEPs)." }
+                    },
+                    required: ["identityEstablished", "ownershipVerified", "businessActivityDefined", "riskAssessmentCompleted"]
+                  },
+                  
+                  commercialDiscussionsDetected: { type: Type.BOOLEAN, description: "Indica si se detectó alguna conversación sobre precios, tarifas, contratos, condiciones de pago, cotizaciones, o detalles comerciales confidenciales." },
+                  commercialDetailsFound: { type: Type.STRING, description: "Detalles específicos de los temas comerciales abordados en la conversación. 'Ninguno' si no aplica." },
+                  isCompliant: { type: Type.BOOLEAN, description: "Indica si la conversación cumple con la regla de cero tolerancia (es decir, NO se hablaron de temas comerciales a menos que el KYC esté completamente verificado)." },
+                  breachSeverity: { type: Type.STRING, description: "Gravedad de la brecha. Debe ser 'NONE' (conforme) o 'CRITICAL' (si se violó la política de cero tolerancia)." },
+                  
+                  summaryOfCall: { type: Type.STRING, description: "Breve resumen de la conversación de 2 o 3 líneas enfocándose en el cumplimiento." },
+                  nextStepsRequired: { 
+                    type: Type.ARRAY, 
+                    items: { type: Type.STRING },
+                    description: "Lista de 3 a 5 acciones inmediatas requeridas para regularizar al cliente y seguir el protocolo de cumplimiento."
+                  }
                 },
-                required: ["identityEstablished", "ownershipVerified", "businessActivityDefined", "riskAssessmentCompleted"]
-              },
-              
-              commercialDiscussionsDetected: { type: Type.BOOLEAN, description: "Indica si se detectó alguna conversación sobre precios, tarifas, contratos, condiciones de pago, cotizaciones, o detalles comerciales confidenciales." },
-              commercialDetailsFound: { type: Type.STRING, description: "Detalles específicos de los temas comerciales abordados en la conversación. 'Ninguno' si no aplica." },
-              isCompliant: { type: Type.BOOLEAN, description: "Indica si la conversación cumple con la regla de cero tolerancia (es decir, NO se hablaron de temas comerciales a menos que el KYC esté completamente verificado)." },
-              breachSeverity: { type: Type.STRING, description: "Gravedad de la brecha. Debe ser 'NONE' (conforme) o 'CRITICAL' (si se violó la política de cero tolerancia)." },
-              
-              summaryOfCall: { type: Type.STRING, description: "Breve resumen de la conversación de 2 o 3 líneas enfocándose en el cumplimiento." },
-              nextStepsRequired: { 
-                type: Type.ARRAY, 
-                items: { type: Type.STRING },
-                description: "Lista de 3 a 5 acciones inmediatas requeridas para regularizar al cliente y seguir el protocolo de cumplimiento."
+                required: [
+                  "clientName", "companyName", "role", "country", "contactInfo", 
+                  "kycChecklist", "commercialDiscussionsDetected", "commercialDetailsFound", 
+                  "isCompliant", "breachSeverity", "summaryOfCall", "nextStepsRequired"
+                ]
               }
-            },
-            required: [
-              "clientName", "companyName", "role", "country", "contactInfo", 
-              "kycChecklist", "commercialDiscussionsDetected", "commercialDetailsFound", 
-              "isCompliant", "breachSeverity", "summaryOfCall", "nextStepsRequired"
-            ]
-          }
-        }
-      });
+            }
+          });
 
-      const responseText = response.text || "{}";
-      const result = JSON.parse(responseText.trim());
+          const responseText = response.text || "{}";
+          result = JSON.parse(responseText.trim());
+          console.log(`[Gemini API] ¡Análisis exitoso con el modelo ${modelName}!`);
+          break; // Break the loop if we have a successful result
+        } catch (err: any) {
+          console.warn(`[Gemini API] Fallo con el modelo ${modelName}:`, err.message || err);
+          lastError = err;
+          // Continúa al siguiente modelo de la lista
+        }
+      }
+
+      // Si todos los intentos estructurados fallaron, probamos un fallback de texto libre a JSON
+      if (!result) {
+        try {
+          console.log("[Gemini API] Intentando análisis de respaldo sin responseSchema estricto usando gemini-flash-latest...");
+          const fallbackResponse = await ai.models.generateContent({
+            model: "gemini-flash-latest",
+            contents: `Analiza la siguiente conversación/transcripción de llamada:
+"${transcript}"
+
+Debes devolver obligatoriamente un objeto JSON plano que cumpla exactamente con esta estructura:
+{
+  "clientName": "Nombre de la persona o 'Unknown'",
+  "companyName": "Nombre de la empresa o 'Unknown'",
+  "role": "Cargo o 'Unknown'",
+  "country": "País o 'Unknown'",
+  "contactInfo": "Email/teléfono o 'Unknown'",
+  "kycChecklist": {
+    "identityEstablished": true/false,
+    "ownershipVerified": true/false,
+    "businessActivityDefined": true/false,
+    "riskAssessmentCompleted": true/false
+  },
+  "commercialDiscussionsDetected": true/false,
+  "commercialDetailsFound": "detalles o 'Ninguno'",
+  "isCompliant": true/false,
+  "breachSeverity": "NONE" o "CRITICAL",
+  "summaryOfCall": "resumen breve",
+  "nextStepsRequired": ["acción 1", "acción 2", "acción 3"]
+}`,
+            config: {
+              systemInstruction,
+              responseMimeType: "application/json"
+            }
+          });
+
+          const responseText = fallbackResponse.text || "{}";
+          result = JSON.parse(responseText.trim());
+          console.log("[Gemini API] ¡Análisis exitoso de respaldo (sin responseSchema estricto)!");
+        } catch (fallbackErr: any) {
+          console.error("[Gemini API] Fallo definitivo en el análisis:", fallbackErr);
+          
+          // Formatear el error definitivo con diagnósticos útiles
+          const errMsg = lastError?.message || fallbackErr?.message || "";
+          let friendlyError = "No se pudo procesar la llamada con la IA de Gemini.";
+
+          if (errMsg.includes("API_KEY_INVALID") || errMsg.includes("API key not valid")) {
+            friendlyError = "La API Key de Gemini ingresada NO es válida. Por favor, asegúrate de haberla copiado completa, sin caracteres adicionales, comillas ni espacios adicionales.";
+          } else if (errMsg.includes("quota") || errMsg.includes("quota exceeded") || errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED")) {
+            friendlyError = "Límite de cuota excedido para esta API Key de Gemini. Si es una clave gratuita, tiene un límite estricto de solicitudes por minuto. Por favor, espera un minuto o prueba con otra clave.";
+          } else if (errMsg.includes("block") || errMsg.includes("permission") || errMsg.includes("PERMISSION_DENIED")) {
+            friendlyError = "Acceso denegado. Es posible que tu API Key no tenga los permisos necesarios o esté restringida para ciertos modelos o regiones.";
+          } else if (errMsg.includes("not found") || errMsg.includes("not_found")) {
+            friendlyError = "Modelo no encontrado o no disponible para esta API Key. Asegúrate de usar una clave que tenga acceso a la API de Gemini.";
+          } else {
+            friendlyError = `Error de la API de Gemini: ${errMsg}`;
+          }
+
+          throw new Error(friendlyError);
+        }
+      }
+
       res.json(result);
     } catch (error: any) {
       console.error("Error en la llamada a Gemini:", error);
