@@ -11,15 +11,48 @@ const PORT = 3000;
 // JSON parsing middleware
 app.use(express.json());
 
+// Global error handlers to capture any unexpected failures without crashing serverless instances
+process.on("uncaughtException", (err) => {
+  console.error("[Fatal] UNCAUGHT EXCEPTION:", err);
+});
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("[Fatal] UNHANDLED REJECTION at:", promise, "reason:", reason);
+});
+
+// Robust environment detection
+const isServerless = !!(
+  process.env.VERCEL ||
+  process.env.LAMBDA_TASK_ROOT ||
+  process.env.AWS_EXECUTION_ENV ||
+  process.env._HANDLER
+);
+
 // Lazy-initialize Gemini SDK to prevent startup crashes when GEMINI_API_KEY is missing
 let aiInstance: GoogleGenAI | null = null;
 let lastUsedKey: string | null = null;
 
 function getGeminiClient(customKey?: string): GoogleGenAI {
-  let apiKey = customKey || process.env.GEMINI_API_KEY;
+  let apiKey = "";
+  
+  // 1. Check custom user key passed in request headers (and ensure it's not a placeholder string)
+  if (customKey && typeof customKey === "string") {
+    const trimmed = customKey.trim();
+    if (trimmed && trimmed !== "null" && trimmed !== "undefined") {
+      apiKey = trimmed;
+    }
+  }
+  
+  // 2. Fallback to server-side process.env.GEMINI_API_KEY
+  if (!apiKey && process.env.GEMINI_API_KEY) {
+    const envKey = process.env.GEMINI_API_KEY.trim();
+    if (envKey && envKey !== "null" && envKey !== "undefined") {
+      apiKey = envKey;
+    }
+  }
+
   if (!apiKey) {
     throw new Error(
-      "Falta la variable de entorno GEMINI_API_KEY o una clave manual. Por favor, asegúrate de añadir GEMINI_API_KEY en Vercel (Settings > Environment Variables) o ingresa tu clave manualmente en el panel de control de la app."
+      "Falta la clave de API de Gemini. Por favor, asegúrate de añadir GEMINI_API_KEY en Vercel (Settings > Environment Variables) o ingresa tu clave manualmente en el panel de control de la app."
     );
   }
   
@@ -32,18 +65,23 @@ function getGeminiClient(customKey?: string): GoogleGenAI {
   // Debugging info (safe)
   console.log(`[Gemini SDK] Inicializando cliente. Longitud de clave: ${apiKey.length}. Finaliza con: ...${apiKey.slice(-4)}`);
   
-  if (!aiInstance || lastUsedKey !== apiKey) {
-    aiInstance = new GoogleGenAI({
-      apiKey: apiKey,
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build',
+  try {
+    if (!aiInstance || lastUsedKey !== apiKey) {
+      aiInstance = new GoogleGenAI({
+        apiKey: apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          }
         }
-      }
-    });
-    lastUsedKey = apiKey;
+      });
+      lastUsedKey = apiKey;
+    }
+    return aiInstance;
+  } catch (err: any) {
+    console.error("[Gemini SDK] Error al inicializar GoogleGenAI:", err);
+    throw new Error(`Error de inicialización de la IA de Gemini: ${err.message || err}`);
   }
-  return aiInstance;
 }
 
 // API Health check
@@ -300,16 +338,22 @@ Debes devolver obligatoriamente un objeto JSON plano que cumpla exactamente con 
     }
   });
 
-  // Setup dev server and production static hosting only when not on Vercel
+  // Setup dev server and production static hosting only when not on Vercel or other serverless hosting
   async function setupServer() {
-    if (!process.env.VERCEL) {
+    if (!isServerless) {
       if (process.env.NODE_ENV !== "production") {
-        const { createServer: createViteServer } = await import("vite");
-        const vite = await createViteServer({
-          server: { middlewareMode: true },
-          appType: "spa",
-        });
-        app.use(vite.middlewares);
+        try {
+          const viteModuleName = "vite";
+          const { createServer: createViteServer } = await import(viteModuleName);
+          const vite = await createViteServer({
+            server: { middlewareMode: true },
+            appType: "spa",
+          });
+          app.use(vite.middlewares);
+          console.log("[Server] Vite middleware mounted successfully.");
+        } catch (err) {
+          console.error("[Server] Error mounting Vite middleware dynamically:", err);
+        }
       } else {
         const distPath = path.join(process.cwd(), "dist");
         app.use(express.static(distPath));
@@ -321,6 +365,8 @@ Debes devolver obligatoriamente un objeto JSON plano que cumpla exactamente con 
       app.listen(PORT, "0.0.0.0", () => {
         console.log(`Server running on http://localhost:${PORT}`);
       });
+    } else {
+      console.log("[Server] Running in serverless/Vercel environment. Listening bypassed.");
     }
   }
 
