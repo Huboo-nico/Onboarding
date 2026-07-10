@@ -81,7 +81,15 @@ export default function App() {
         },
       });
 
-      const data = await response.json();
+      const contentType = response.headers.get('content-type') || '';
+      let data: any = {};
+      if (contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(text || `El servidor devolvió un error de texto plano con código ${response.status}`);
+      }
+
       if (response.ok && data.success) {
         setConnectionResult({
           success: true,
@@ -97,9 +105,14 @@ export default function App() {
       }
     } catch (err: any) {
       console.error('Error testing Gemini key:', err);
+      // Clean up common server errors to make them highly friendly
+      let errorMsg = err.message || 'Error de red o comunicación con el servidor.';
+      if (errorMsg.includes('A server error')) {
+        errorMsg = 'Error en el servidor de Vercel. Asegúrate de que las dependencias estén bien construidas y que el backend de Node/Vercel no esté experimentando un bloqueo temporal.';
+      }
       setConnectionResult({
         success: false,
-        error: err.message || 'Error de red o comunicación con el servidor.',
+        error: errorMsg,
       });
     } finally {
       setTestingConnection(false);
@@ -116,8 +129,13 @@ export default function App() {
         }
       });
       if (res.ok) {
-        const data = await res.json();
-        setHasGeminiKey(!!data.hasGeminiKey);
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const data = await res.json();
+          setHasGeminiKey(!!data.hasGeminiKey);
+        } else {
+          setHasGeminiKey(false);
+        }
       } else {
         setHasGeminiKey(false);
       }
