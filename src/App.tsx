@@ -60,7 +60,7 @@ export default function App() {
     setIsWorkspaceConfigured(!isUsingPlaceholder());
 
     // Load custom Google Client ID if saved
-    const savedClientId = localStorage.getItem('custom_google_client_id');
+    const savedClientId = localStorage.getItem('custom_google_client_id') || ((import.meta as any).env?.VITE_GOOGLE_CLIENT_ID as string) || '';
     if (savedClientId) {
       setCustomGoogleClientId(savedClientId);
     }
@@ -868,20 +868,48 @@ export default function App() {
 
                   {/* Google Configuration Panel */}
                   {showGoogleConfig && (
-                    <div className="p-4 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600 flex flex-col gap-3 animate-fadeIn mb-2">
-                      <div className="font-semibold text-slate-800 text-xs">
-                        Guía de Configuración para Dominios Propios, Vercel o GitHub Pages
+                    <div className="p-4 bg-indigo-50/50 border border-indigo-100 rounded-lg text-xs text-slate-600 flex flex-col gap-3 animate-fadeIn mb-3">
+                      <div className="font-semibold text-slate-800 text-xs flex items-center gap-1">
+                        <Info className="w-4 h-4 text-indigo-600" />
+                        Guía Definitiva de Configuración para Google Drive en Vercel
                       </div>
                       <p className="text-[11px] leading-relaxed">
-                        Para conectar tu Google Drive desde una app desplegada fuera del entorno de desarrollo (como Vercel o GitHub Pages), debes usar tu propio <strong>ID de Cliente de Google</strong>:
+                        Google es sumamente estricto con las direcciones URL de redirección. Una barra diagonal (<code className="bg-slate-200 px-0.5 rounded text-red-600 font-mono">/</code>) de más o de menos puede causar el error <code className="bg-slate-200 px-1 py-0.5 rounded text-red-600 font-bold">redirect_uri_mismatch</code>. 
+                        Sigue estos pasos detallados para resolverlo de inmediato:
                       </p>
-                      <ol className="list-decimal pl-4 text-[11px] flex flex-col gap-1.5 text-slate-600">
-                        <li>Ve a la <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-semibold">Consola de Google Cloud</a>.</li>
-                        <li>Crea o selecciona tu proyecto de Google Cloud.</li>
-                        <li>Haz clic en <strong>Crear credenciales</strong> &gt; <strong>ID de cliente de OAuth</strong> (Elige <em>Aplicación web</em> como tipo de aplicación).</li>
-                        <li>Agrega en <strong>Orígenes de JavaScript autorizados</strong> este origen exacto (sin barras finales): <code className="bg-slate-200 px-1.5 py-0.5 rounded text-red-600 font-mono select-all text-[10px]">{window.location.origin}</code></li>
-                        <li>Agrega en <strong>URIs de redireccionamiento autorizados</strong> este valor exacto: <code className="bg-slate-200 px-1.5 py-0.5 rounded text-red-600 font-mono select-all text-[10px]">{window.location.href.split('#')[0].split('?')[0]}</code></li>
-                        <li>Haz clic en <strong>Guardar/Crear</strong>, copia el <strong>ID de cliente</strong> generado (un texto largo terminado en <em>.apps.googleusercontent.com</em>) y pégalo abajo:</li>
+                      <ol className="list-decimal pl-4 text-[11px] flex flex-col gap-2 text-slate-600">
+                        <li>Abre la <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-semibold">Consola de Google Cloud</a> e ingresa a tu proyecto.</li>
+                        <li>Haz clic en tu credencial tipo <strong>ID de cliente de OAuth 2.0</strong> (o crea una seleccionando <em>Aplicación web</em>).</li>
+                        <li>
+                          En la sección <strong>Orígenes de JavaScript autorizados</strong>, agrega este origen exacto (sin barra final):
+                          <div className="mt-1 flex items-center gap-1.5">
+                            <code className="bg-white border border-slate-200 px-2 py-1 rounded text-red-600 font-mono select-all text-[10px] font-semibold break-all">{window.location.origin}</code>
+                          </div>
+                        </li>
+                        <li>
+                          En la sección <strong>URIs de redireccionamiento autorizados</strong>, debes agregar <strong>AMBOS</strong> valores para evitar errores de barra final:
+                          <div className="mt-1.5 flex flex-col gap-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-slate-400 font-mono text-[10px] w-14 font-semibold">Valor 1:</span>
+                              <code className="bg-white border border-slate-200 px-2 py-1 rounded text-indigo-600 font-mono select-all text-[10px] font-semibold break-all">{window.location.origin}</code>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-slate-400 font-mono text-[10px] w-14 font-semibold">Valor 2:</span>
+                              <code className="bg-white border border-slate-200 px-2 py-1 rounded text-indigo-600 font-mono select-all text-[10px] font-semibold break-all">{window.location.origin + '/'}</code>
+                            </div>
+                            {window.location.href.split('#')[0].split('?')[0] !== window.location.origin && window.location.href.split('#')[0].split('?')[0] !== window.location.origin + '/' && (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-slate-400 font-mono text-[10px] w-14 font-semibold">Valor 3:</span>
+                                <code className="bg-white border border-slate-200 px-2 py-1 rounded text-indigo-600 font-mono select-all text-[10px] font-semibold break-all">{window.location.href.split('#')[0].split('?')[0]}</code>
+                              </div>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-slate-500 mt-1 italic font-sans">
+                            * Agrega una fila para el Valor 1 y otra fila para el Valor 2 en Google Cloud.
+                          </p>
+                        </li>
+                        <li>Haz clic en <strong>Guardar</strong> en el botón azul inferior de la consola de Google.</li>
+                        <li>Copia el <strong>ID de cliente</strong> generado (el texto largo que termina en <code className="bg-slate-200 px-0.5 rounded font-mono">.apps.googleusercontent.com</code>) y pégalo aquí abajo:</li>
                       </ol>
 
                       <div className="flex flex-col gap-1.5 mt-2">
