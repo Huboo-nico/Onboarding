@@ -14,16 +14,17 @@ app.use(express.json());
 
 // Lazy-initialize Gemini SDK to prevent startup crashes when GEMINI_API_KEY is missing
 let aiInstance: GoogleGenAI | null = null;
+let lastUsedKey: string | null = null;
 
-function getGeminiClient(): GoogleGenAI {
-  const apiKey = process.env.GEMINI_API_KEY;
+function getGeminiClient(customKey?: string): GoogleGenAI {
+  const apiKey = customKey || process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error(
-      "Falta la variable de entorno GEMINI_API_KEY. Por favor, accede a tu panel de control de Vercel (Ajustes > Environment Variables) y añade GEMINI_API_KEY con tu clave de API de Gemini."
+      "Falta la variable de entorno GEMINI_API_KEY o una clave manual. Por favor, asegúrate de añadir GEMINI_API_KEY en Vercel (Settings > Environment Variables) o ingresa tu clave manualmente en el panel de control de la app."
     );
   }
   
-  if (!aiInstance) {
+  if (!aiInstance || lastUsedKey !== apiKey) {
     aiInstance = new GoogleGenAI({
       apiKey: apiKey,
       httpOptions: {
@@ -32,6 +33,7 @@ function getGeminiClient(): GoogleGenAI {
         }
       }
     });
+    lastUsedKey = apiKey;
   }
   return aiInstance;
 }
@@ -43,8 +45,9 @@ app.get("/api/health", (req, res) => {
 
 // Config Status check
 app.get("/api/config-status", (req, res) => {
+  const customKey = req.headers['x-gemini-key'] as string;
   res.json({
-    hasGeminiKey: !!process.env.GEMINI_API_KEY,
+    hasGeminiKey: !!(customKey || process.env.GEMINI_API_KEY),
   });
 });
 
@@ -56,7 +59,8 @@ app.post("/api/analyze", async (req, res) => {
         return res.status(400).json({ error: "El contenido de la conversación es requerido." });
       }
 
-      const ai = getGeminiClient();
+      const customKey = req.headers['x-gemini-key'] as string;
+      const ai = getGeminiClient(customKey);
 
       const systemInstruction = `Eres un Oficial de Cumplimiento Normativo (Compliance Officer) corporativo de alta prioridad.
 Tu tarea es analizar detalladamente el texto de una conversación/comunicación entre un miembro del equipo comercial y un tercero (cliente, socio, proveedor, etc.) según la política estricta de CERO TOLERANCIA de la empresa.

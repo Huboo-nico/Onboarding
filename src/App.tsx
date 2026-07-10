@@ -21,7 +21,8 @@ import {
   ArrowRight,
   Info,
   Clock,
-  Folder
+  Folder,
+  Key
 } from 'lucide-react';
 import { mockTranscripts, TranscriptTemplate } from './mockData';
 import { KYCAnalysisResult, ClientRecord } from './types';
@@ -57,11 +58,18 @@ export default function App() {
   // Server Diagnostics State
   const [hasGeminiKey, setHasGeminiKey] = useState<boolean | null>(null);
   const [checkingConfig, setCheckingConfig] = useState<boolean>(false);
+  const [customGeminiKey, setCustomGeminiKey] = useState<string>('');
+  const [showCustomGeminiInput, setShowCustomGeminiInput] = useState<boolean>(false);
 
   const checkConfigStatus = async () => {
     setCheckingConfig(true);
     try {
-      const res = await fetch('/api/config-status');
+      const savedKey = localStorage.getItem('custom_gemini_api_key') || '';
+      const res = await fetch('/api/config-status', {
+        headers: {
+          'x-gemini-key': savedKey,
+        }
+      });
       if (res.ok) {
         const data = await res.json();
         setHasGeminiKey(!!data.hasGeminiKey);
@@ -88,6 +96,12 @@ export default function App() {
     const savedClientId = localStorage.getItem('custom_google_client_id') || import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
     if (savedClientId) {
       setCustomGoogleClientId(savedClientId);
+    }
+
+    // Load custom Gemini API Key if saved
+    const savedGeminiKey = localStorage.getItem('custom_gemini_api_key') || '';
+    if (savedGeminiKey) {
+      setCustomGeminiKey(savedGeminiKey);
     }
 
     // Load clients history from localStorage
@@ -241,10 +255,12 @@ export default function App() {
     setExportError(null);
 
     try {
+      const savedKey = localStorage.getItem('custom_gemini_api_key') || '';
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-gemini-key': savedKey,
         },
         body: JSON.stringify({ transcript }),
       });
@@ -593,7 +609,7 @@ export default function App() {
             )}
 
             {/* Vercel Server Diagnostics Status Card */}
-            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded text-xs">
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded text-xs flex flex-col gap-2.5">
               <div className="flex justify-between items-center">
                 <span className="font-semibold text-slate-700 flex items-center gap-1.5">
                   <span className={`w-2 h-2 rounded-full ${hasGeminiKey === null ? 'bg-amber-400 animate-pulse' : hasGeminiKey ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`} />
@@ -609,9 +625,68 @@ export default function App() {
                   {checkingConfig ? 'Verificando...' : 'Comprobar'}
                 </button>
               </div>
+
+              {/* Custom manual Gemini API Key inputs */}
+              <div className="border-t border-slate-200 pt-2 flex flex-col gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setShowCustomGeminiInput(!showCustomGeminiInput)}
+                  className="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 cursor-pointer text-left leading-tight"
+                >
+                  <Key className="w-3 h-3 shrink-0" />
+                  {showCustomGeminiInput ? 'Ocultar ajuste de API Key manual' : '¿Quieres ingresar tu API Key de Gemini manualmente? (Alternativa rápida)'}
+                </button>
+                
+                {showCustomGeminiInput && (
+                  <div className="p-2.5 bg-white border border-indigo-100 rounded flex flex-col gap-2 mt-1 animate-fadeIn">
+                    <p className="text-[10px] leading-relaxed text-slate-500">
+                      Si tienes problemas con las variables de entorno de Vercel, ingresa tu API Key de Gemini aquí. Se guardará de forma segura en tu navegador y se usará para el análisis de inmediato.
+                    </p>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="password"
+                        value={customGeminiKey}
+                        onChange={(e) => setCustomGeminiKey(e.target.value)}
+                        placeholder="AIzaSy..."
+                        className="bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs text-slate-800 w-full focus:outline-none focus:border-indigo-500 font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const trimmed = customGeminiKey.trim();
+                          if (!trimmed) {
+                            alert('Por favor, ingresa una clave válida.');
+                            return;
+                          }
+                          localStorage.setItem('custom_gemini_api_key', trimmed);
+                          alert('Clave de API de Gemini guardada correctamente.');
+                          checkConfigStatus();
+                        }}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] px-2.5 py-1 rounded transition cursor-pointer shrink-0"
+                      >
+                        Guardar
+                      </button>
+                      {localStorage.getItem('custom_gemini_api_key') && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            localStorage.removeItem('custom_gemini_api_key');
+                            setCustomGeminiKey('');
+                            alert('Se eliminó tu clave de API manual. El servidor volverá a usar la del entorno de Vercel.');
+                            checkConfigStatus();
+                          }}
+                          className="bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-semibold text-[10px] px-2 py-1 rounded transition cursor-pointer shrink-0"
+                        >
+                          Borrar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
               
               {hasGeminiKey === false && (
-                <div className="text-[11px] text-slate-600 space-y-1.5 border-t border-slate-100 pt-2.5 mt-2 animate-fadeIn">
+                <div className="text-[11px] text-slate-600 space-y-1.5 border-t border-slate-100 pt-2.5 animate-fadeIn">
                   <p className="font-medium text-rose-700">⚠️ Vercel no ha cargado tu GEMINI_API_KEY todavía.</p>
                   <p className="leading-relaxed">
                     Si ya agregaste la variable en Vercel, el error ocurre porque <strong>Vercel requiere un nuevo despliegue (Redeploy)</strong> para aplicar variables nuevas. Las variables no se actualizan solas en despliegues existentes.
