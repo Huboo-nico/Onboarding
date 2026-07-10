@@ -27,7 +27,7 @@ import {
 import { mockTranscripts, TranscriptTemplate } from './mockData';
 import { KYCAnalysisResult, ClientRecord } from './types';
 import { initAuth, googleSignIn, googleSignInDirect, logout, isUsingPlaceholder } from './auth';
-import { createKYCDocument } from './gdrive';
+import { createKYCDocument, getFilesInFolder, getAllKYCFolders, createAdditionalNote } from './gdrive';
 import { User as FirebaseUser } from 'firebase/auth';
 
 export default function App() {
@@ -54,6 +54,23 @@ export default function App() {
   const [exportedFolderUrl, setExportedFolderUrl] = useState<string | null>(null);
   const [exportedFolderName, setExportedFolderName] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+
+  // Google Drive Explorer State
+  const [driveFolders, setDriveFolders] = useState<Array<{ id: string; name: string; mimeType: string; createdTime?: string }>>([]);
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
+  const [activeFolderFiles, setActiveFolderFiles] = useState<Array<{ id: string; name: string; mimeType: string; webViewLink?: string; createdTime?: string }>>([]);
+  const [loadingDrive, setLoadingDrive] = useState<boolean>(false);
+  const [loadingDriveFiles, setLoadingDriveFiles] = useState<boolean>(false);
+  const [exportedFolderId, setExportedFolderId] = useState<string | null>(null);
+  const [exportedDocId, setExportedDocId] = useState<string | null>(null);
+  const [folderSearch, setFolderSearch] = useState<string>('');
+  
+  // Note creation inside Drive Explorer
+  const [showNoteForm, setShowNoteForm] = useState<boolean>(false);
+  const [newNoteTitle, setNewNoteTitle] = useState<string>('');
+  const [newNoteContent, setNewNoteContent] = useState<string>('');
+  const [isSavingNote, setIsSavingNote] = useState<boolean>(false);
+  const [noteSuccessMessage, setNoteSuccessMessage] = useState<string | null>(null);
 
   // Server Diagnostics State
   const [hasGeminiKey, setHasGeminiKey] = useState<boolean | null>(null);
@@ -236,6 +253,96 @@ export default function App() {
       window.removeEventListener('message', handleOAuthMessage);
     };
   }, []);
+
+  // Fetch folders from Drive
+  const fetchDriveFolders = async (token = oauthToken) => {
+    if (!token) return;
+    setLoadingDrive(true);
+    try {
+      const folders = await getAllKYCFolders(token);
+      setDriveFolders(folders);
+    } catch (err) {
+      console.error('Error fetching drive folders:', err);
+    } finally {
+      setLoadingDrive(false);
+    }
+  };
+
+  // Fetch files inside a folder
+  const fetchFilesForFolder = async (folderId: string, token = oauthToken) => {
+    if (!token || !folderId) return;
+    setLoadingDriveFiles(true);
+    try {
+      const files = await getFilesInFolder(token, folderId);
+      setActiveFolderFiles(files);
+    } catch (err) {
+      console.error('Error fetching folder files:', err);
+    } finally {
+      setLoadingDriveFiles(false);
+    }
+  };
+
+  // Create an additional note/annex inside a folder
+  const handleCreateNote = async () => {
+    if (!oauthToken || !activeFolderId) {
+      alert('Error: No hay una carpeta activa seleccionada.');
+      return;
+    }
+    if (!newNoteTitle.trim() || !newNoteContent.trim()) {
+      alert('Por favor, ingresa el título y contenido de la nota compliance.');
+      return;
+    }
+
+    setIsSavingNote(true);
+    setNoteSuccessMessage(null);
+    try {
+      const noteTitleWithApp = `${newNoteTitle.trim()} - Compliance Memo`;
+      const contentWithHeading = `${newNoteTitle.trim()}\n===================\nFecha: ${new Date().toLocaleString()}\n\n${newNoteContent.trim()}`;
+      
+      await createAdditionalNote(
+        oauthToken,
+        activeFolderId,
+        noteTitleWithApp,
+        contentWithHeading
+      );
+      
+      setNoteSuccessMessage('¡Nota de compliance guardada con éxito en Google Drive!');
+      setNewNoteTitle('');
+      setNewNoteContent('');
+      setShowNoteForm(false);
+      
+      // Refresh current folder file list
+      await fetchFilesForFolder(activeFolderId, oauthToken);
+      
+      // Clear success notification after a few seconds
+      setTimeout(() => setNoteSuccessMessage(null), 5000);
+    } catch (err: any) {
+      console.error('Error creating compliance note:', err);
+      alert('No se pudo crear la nota en Drive: ' + (err.message || err));
+    } finally {
+      setIsSavingNote(false);
+    }
+  };
+
+  // Sync drive workspace on login/logout
+  useEffect(() => {
+    if (oauthToken) {
+      fetchDriveFolders(oauthToken);
+    } else {
+      setDriveFolders([]);
+      setActiveFolderId(null);
+      setActiveFolderFiles([]);
+    }
+  }, [oauthToken]);
+
+  // Sync folder files when active folder changes
+  useEffect(() => {
+    if (activeFolderId && oauthToken) {
+      fetchFilesForFolder(activeFolderId, oauthToken);
+    } else {
+      setActiveFolderFiles([]);
+    }
+  }, [activeFolderId, oauthToken]);
 
   // Handle Google Login for exporting
   const handleGoogleLogin = async () => {
@@ -431,12 +538,24 @@ export default function App() {
     setExportedDocUrl(null);
     setExportedFolderUrl(null);
     setExportedFolderName(null);
+    setExportedFolderId(null);
+    setExportedDocId(null);
 
     try {
-      const { docUrl, folderUrl, folderName } = await createKYCDocument(oauthToken, targetResult);
+      const { docUrl, folderUrl, folderName, folderId, documentId } = await createKYCDocument(oauthToken, targetResult);
       setExportedDocUrl(docUrl);
       setExportedFolderUrl(folderUrl);
       setExportedFolderName(folderName);
+      setExportedFolderId(folderId || null);
+      setExportedDocId(documentId || null);
+      
+      // Auto-focus on the newly created or retrieved folder
+      if (folderId) {
+        setActiveFolderId(folderId);
+      }
+      
+      // Refresh the visual directory listing
+      await fetchDriveFolders(oauthToken);
     } catch (err: any) {
       console.error('Google Docs export error:', err);
       setExportError('Fallo al exportar a Google Docs: ' + (err.message || err));
@@ -1301,15 +1420,344 @@ export default function App() {
                     </div>
                   )}
 
+                  {/* VISUAL COMPLIANCE DRIVE WORKSPACE */}
+                  <div className="border border-slate-200 rounded-lg overflow-hidden bg-slate-50 flex flex-col gap-0 mt-3 shadow-sm">
+                    {/* Header bar */}
+                    <div className="bg-slate-900 text-white px-4 py-3 flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <Folder className="w-4 h-4 text-indigo-400" />
+                        <h4 className="font-display font-bold text-xs uppercase tracking-wider">
+                          Explorador Visual: Repositorio en Google Drive
+                        </h4>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {googleUser ? (
+                          <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-mono px-2 py-0.5 rounded border border-emerald-500/30 font-semibold flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            Conectado
+                          </span>
+                        ) : (
+                          <span className="bg-slate-700 text-slate-300 text-[10px] font-mono px-2 py-0.5 rounded border border-slate-600">
+                            Simulación de Estructura
+                          </span>
+                        )}
+                        {googleUser && (
+                          <button
+                            type="button"
+                            onClick={() => fetchDriveFolders(oauthToken)}
+                            disabled={loadingDrive}
+                            className="text-indigo-400 hover:text-white p-1 rounded hover:bg-slate-800 transition disabled:opacity-50 cursor-pointer"
+                            title="Refrescar carpetas de Drive"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 ${loadingDrive ? 'animate-spin' : ''}`} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {googleUser ? (
+                      /* Real Interactive Google Drive Explorer */
+                      <div className="grid grid-cols-1 md:grid-cols-12 min-h-[350px]">
+                        {/* Sidebar: Folder Tree Directory */}
+                        <div className="md:col-span-4 bg-slate-100 border-b md:border-b-0 md:border-r border-slate-200 p-3.5 flex flex-col gap-3">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">
+                              Carpetas KYC
+                            </span>
+                            <span className="text-[10px] font-bold bg-slate-200 text-slate-600 px-1.5 py-0.2 rounded font-mono">
+                              {driveFolders.length}
+                            </span>
+                          </div>
+
+                          {/* Quick Filter */}
+                          <input
+                            type="text"
+                            value={folderSearch}
+                            onChange={(e) => setFolderSearch(e.target.value)}
+                            placeholder="Buscar empresa..."
+                            className="bg-white border border-slate-300 rounded px-2 py-1 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 w-full"
+                          />
+
+                          {/* Folder list */}
+                          {loadingDrive ? (
+                            <div className="flex flex-col items-center justify-center py-10 gap-2">
+                              <RefreshCw className="w-5 h-5 text-indigo-600 animate-spin" />
+                              <span className="text-[11px] text-slate-500">Cargando carpetas...</span>
+                            </div>
+                          ) : driveFolders.length === 0 ? (
+                            <div className="text-center py-8 bg-white/50 border border-dashed border-slate-250 rounded p-4 text-slate-400">
+                              <Folder className="w-6 h-6 text-slate-300 mx-auto mb-1.5" />
+                              <p className="text-[10px] leading-normal">
+                                No se encontraron carpetas. Exporta un reporte para crear una.
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-1 overflow-y-auto max-h-[220px] pr-1">
+                              {driveFolders
+                                .filter(f => f.name.toLowerCase().includes(folderSearch.toLowerCase()))
+                                .map(folder => (
+                                  <button
+                                    key={folder.id}
+                                    type="button"
+                                    onClick={() => setActiveFolderId(folder.id)}
+                                    className={`w-full text-left px-2.5 py-2 rounded text-xs transition flex items-center gap-2 cursor-pointer border ${
+                                      activeFolderId === folder.id
+                                        ? 'bg-indigo-600 text-white border-indigo-700 font-semibold shadow-sm'
+                                        : 'bg-white hover:bg-slate-150 text-slate-700 border-slate-200 hover:text-slate-900'
+                                    }`}
+                                  >
+                                    <Folder className={`w-4 h-4 shrink-0 ${activeFolderId === folder.id ? 'text-indigo-200' : 'text-indigo-600'}`} />
+                                    <span className="truncate">{folder.name}</span>
+                                  </button>
+                                ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* File details and creation panel */}
+                        <div className="md:col-span-8 p-4 bg-white flex flex-col gap-4 animate-fadeIn">
+                          {activeFolderId ? (
+                            <>
+                              {/* Breadcrumbs / Actions */}
+                              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 pb-3 border-b border-slate-100">
+                                <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                  <span className="font-semibold text-slate-400">Mi Unidad</span>
+                                  <span className="text-slate-300">/</span>
+                                  <Folder className="w-3.5 h-3.5 text-indigo-600" />
+                                  <span className="font-bold text-slate-800 truncate max-w-[150px]">
+                                    {driveFolders.find(f => f.id === activeFolderId)?.name || 'Empresa'}
+                                  </span>
+                                </div>
+                                <a
+                                  href={`https://drive.google.com/drive/folders/${activeFolderId}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 transition self-start cursor-pointer"
+                                >
+                                  Abrir Carpeta en Google Drive ↗
+                                </a>
+                              </div>
+
+                              {/* Files listing */}
+                              <div className="flex flex-col gap-2">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">
+                                    Archivos de Cumplimiento
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => fetchFilesForFolder(activeFolderId)}
+                                    disabled={loadingDriveFiles}
+                                    className="text-[9px] text-indigo-600 font-bold font-mono hover:underline cursor-pointer"
+                                  >
+                                    Refrescar archivos
+                                  </button>
+                                </div>
+
+                                {loadingDriveFiles ? (
+                                  <div className="flex items-center justify-center py-10 gap-2">
+                                    <RefreshCw className="w-4 h-4 text-indigo-600 animate-spin" />
+                                    <span className="text-xs text-slate-500">Consultando Drive...</span>
+                                  </div>
+                                ) : activeFolderFiles.length === 0 ? (
+                                  <p className="text-[11px] text-slate-500 text-center py-8 border border-dashed border-slate-200 rounded">
+                                    No hay archivos adicionales en esta carpeta de Drive. Puedes añadir notas o actas adicionales abajo.
+                                  </p>
+                                ) : (
+                                  <div className="flex flex-col gap-1.5 max-h-[160px] overflow-y-auto pr-1">
+                                    {activeFolderFiles.map(file => {
+                                      const isDoc = file.mimeType.includes('document');
+                                      return (
+                                        <div
+                                          key={file.id}
+                                          className="p-2.5 rounded border border-slate-100 hover:border-slate-300 bg-slate-50/50 flex items-center justify-between text-xs transition group"
+                                        >
+                                          <div className="flex items-center gap-2.5 truncate max-w-[70%]">
+                                            <FileText className={`w-4 h-4 shrink-0 ${isDoc ? 'text-indigo-600' : 'text-slate-400'}`} />
+                                            <div className="truncate">
+                                              <p className="font-semibold text-slate-800 truncate" title={file.name}>
+                                                {file.name}
+                                              </p>
+                                              {file.createdTime && (
+                                                <p className="text-[9px] text-slate-400 font-mono mt-0.5">
+                                                  Creado: {new Date(file.createdTime).toLocaleString('es-ES', {
+                                                    day: '2-digit',
+                                                    month: '2-digit',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                  })}
+                                                </p>
+                                              )}
+                                            </div>
+                                          </div>
+                                          {file.webViewLink && (
+                                            <a
+                                              href={file.webViewLink}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 text-indigo-600 text-[10px] font-bold py-1 px-2.5 rounded flex items-center gap-1 transition cursor-pointer shrink-0"
+                                            >
+                                              Abrir ↗
+                                            </a>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Form to create custom compliance note */}
+                              <div className="border-t border-slate-100 pt-3 flex flex-col gap-2 mt-auto">
+                                {!showNoteForm ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setShowNoteForm(true);
+                                      setNewNoteTitle(`Anotación Adicional - ${currentResult?.companyName || 'Empresa'}`);
+                                      setNewNoteContent('PEP validado en base de datos nacional, sin coincidencias encontradas.\nSe adjuntan hallazgos como anexo legal de KYC.');
+                                    }}
+                                    className="bg-slate-100 hover:bg-slate-200 border border-slate-300 hover:border-slate-400 text-slate-700 text-[11px] font-bold py-2 px-3 rounded flex items-center justify-center gap-1.5 transition cursor-pointer w-full"
+                                  >
+                                    <PlusCircle className="w-3.5 h-3.5 text-slate-500" />
+                                    Añadir Memorándum o Nota de Compliance Directo a Drive
+                                  </button>
+                                ) : (
+                                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex flex-col gap-2.5 animate-fadeIn">
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider font-mono">
+                                        Nuevo Memo en Google Docs
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => setShowNoteForm(false)}
+                                        className="text-slate-400 hover:text-rose-600 text-[10px] font-bold cursor-pointer"
+                                      >
+                                        Cancelar
+                                      </button>
+                                    </div>
+                                    <input
+                                      type="text"
+                                      value={newNoteTitle}
+                                      onChange={(e) => setNewNoteTitle(e.target.value)}
+                                      placeholder="Título de la Nota"
+                                      className="bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 font-semibold w-full"
+                                    />
+                                    <textarea
+                                      rows={3}
+                                      value={newNoteContent}
+                                      onChange={(e) => setNewNoteContent(e.target.value)}
+                                      placeholder="Detalles del hallazgo o validación..."
+                                      className="bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 font-mono w-full resize-none"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={handleCreateNote}
+                                      disabled={isSavingNote || !newNoteTitle.trim() || !newNoteContent.trim()}
+                                      className="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold py-1.5 px-3 rounded transition flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                                    >
+                                      {isSavingNote ? (
+                                        <>
+                                          <RefreshCw className="w-3 animate-spin" />
+                                          Guardando en Drive...
+                                        </>
+                                      ) : (
+                                        'Guardar Nota en Google Drive'
+                                      )}
+                                    </button>
+                                  </div>
+                                )}
+
+                                {noteSuccessMessage && (
+                                  <div className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-150 p-2 rounded text-center animate-fadeIn">
+                                    ✓ {noteSuccessMessage}
+                                  </div>
+                                )}
+                              </div>
+                            </>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center text-center h-full text-slate-500 p-6 my-auto">
+                              <Folder className="w-10 h-10 text-indigo-200 mb-2" />
+                              <h5 className="font-bold text-xs text-slate-700">Explorador de Archivos Corporativo</h5>
+                              <p className="text-[11px] leading-relaxed text-slate-500 mt-1 max-w-xs">
+                                Selecciona una carpeta de la lista lateral izquierda para ver sus archivos en Google Drive en tiempo real y redactar notas compliance.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      /* Beautiful Visual Mock Simulator Diagram */
+                      <div className="p-4 bg-white flex flex-col gap-4">
+                        <p className="text-[11px] leading-relaxed text-slate-600 -mb-1">
+                          Conectar tu cuenta organiza de forma automatizada todos tus documentos en una estructura de carpetas jerárquica limpia, evitando mezclar análisis y permitiendo auditorías rápidas:
+                        </p>
+
+                        {/* Interactive Tree View Simulator */}
+                        <div className="bg-slate-900 text-slate-300 p-4 rounded-lg font-mono text-[11px] shadow-inner border border-slate-800 select-none flex flex-col gap-2">
+                          <div className="flex items-center justify-between border-b border-slate-850 pb-1.5 mb-1 text-[9px] text-slate-500 font-semibold tracking-wider">
+                            <span>VISTA PREVIA DEL REPOSITORIO</span>
+                            <span>GOOGLE DRIVE</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-indigo-400">
+                            <Folder className="w-3.5 h-3.5 shrink-0" />
+                            <span>Mi Unidad / Mi Google Drive</span>
+                          </div>
+                          <div className="pl-4 flex items-center gap-2 text-amber-400">
+                            <span>└──</span>
+                            <Folder className="w-3.5 h-3.5 shrink-0" />
+                            <span>📁 {currentResult?.companyName || '[Nombre de la Empresa]'}</span>
+                          </div>
+                          <div className="pl-10 flex flex-col gap-1.5 text-slate-400">
+                            <div className="flex items-center gap-2">
+                              <span>├──</span>
+                              <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                              <span className="text-white">📄 Informe KYC - {currentResult?.companyName || '[Empresa]'} ({currentResult?.clientName || '[Cliente]'}).gdoc</span>
+                              <span className="text-[9px] bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-semibold rounded px-1">Reporte Principal</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span>└──</span>
+                              <FileText className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                              <span>📄 Memorándum Adicional - Compliance Memo.gdoc</span>
+                              <span className="text-[9px] bg-slate-800 text-slate-500 rounded px-1 font-semibold">Memos del Auditor</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Feature features list */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 border-t border-slate-100 mt-1">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-bold text-indigo-600 font-mono">1. CARPETA EXCLUSIVA</span>
+                            <span className="text-[10px] text-slate-500 leading-relaxed">
+                              Cada empresa tiene su propia carpeta dedicada en tu Drive para una auditoría sin errores de desorden.
+                            </span>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-bold text-indigo-600 font-mono">2. FORMATO IMPECABLE</span>
+                            <span className="text-[10px] text-slate-500 leading-relaxed">
+                              Los informes se crean con cabeceras, tablas y esquemas de color corporativos autogenerados.
+                            </span>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-bold text-indigo-600 font-mono">3. REDACCIÓN INTERACTIVA</span>
+                            <span className="text-[10px] text-slate-500 leading-relaxed">
+                              Una vez conectado, podrás redactar y adjuntar notas adicionales que se guardarán directamente en su carpeta.
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {!googleUser && (
-                    <p className="text-[10px] text-slate-500 italic mt-1 flex items-center gap-1">
-                      <Sparkles className="w-3 h-3 text-indigo-500 inline" />
+                    <p className="text-[10px] text-slate-500 italic mt-1.5 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-indigo-500 inline animate-pulse" />
                       Tip: Cuando conectas tu Google Drive, cada análisis completado se guardará de forma automática en una carpeta de Drive creada para esa empresa.
                     </p>
                   )}
 
                   {exportError && (
-                    <div className="bg-red-50 text-red-800 text-xs p-3.5 rounded border border-red-200">
+                    <div className="bg-red-50 text-red-800 text-xs p-3.5 rounded border border-red-200 mt-2">
                       {exportError}
                     </div>
                   )}

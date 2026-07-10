@@ -38,7 +38,7 @@ interface BatchUpdateRequest {
 export async function createKYCDocument(
   token: string,
   data: KYCAnalysisResult
-): Promise<{ docUrl: string; folderUrl: string; folderName: string }> {
+): Promise<{ docUrl: string; folderUrl: string; folderName: string; folderId?: string; documentId?: string }> {
   const companyName = (data.companyName || 'Empresa').trim();
   const clientName = (data.clientName || 'Cliente').trim();
   
@@ -194,5 +194,134 @@ AVISO DE COMPLIANCE: De acuerdo con la Política de Cero Tolerancia corporativa,
     docUrl,
     folderUrl,
     folderName: companyName,
+    folderId,
+    documentId,
   };
 }
+
+/**
+ * Fetches the list of files in a specific Google Drive folder.
+ */
+export async function getFilesInFolder(
+  token: string,
+  folderId: string
+): Promise<Array<{ id: string; name: string; mimeType: string; webViewLink?: string; createdTime?: string }>> {
+  try {
+    const query = `'${folderId}' in parents and trashed = false`;
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType,webViewLink,createdTime)&orderBy=name`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      return data.files || [];
+    } else {
+      const errorText = await res.text();
+      console.error('[Google Drive API] Error fetching files in folder:', errorText);
+      return [];
+    }
+  } catch (err) {
+    console.error('[Google Drive API] Network error fetching files:', err);
+    return [];
+  }
+}
+
+/**
+ * Retrieves all folders created by this app in the user's Google Drive.
+ */
+export async function getAllKYCFolders(
+  token: string
+): Promise<Array<{ id: string; name: string; mimeType: string; createdTime?: string }>> {
+  try {
+    const query = "mimeType = 'application/vnd.google-apps.folder' and trashed = false";
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType,createdTime)&orderBy=name`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      return data.files || [];
+    } else {
+      const errorText = await res.text();
+      console.error('[Google Drive API] Error fetching all folders:', errorText);
+      return [];
+    }
+  } catch (err) {
+    console.error('[Google Drive API] Network error fetching folders:', err);
+    return [];
+  }
+}
+
+/**
+ * Creates an additional text file or Google Doc inside a company's folder.
+ */
+export async function createAdditionalNote(
+  token: string,
+  folderId: string,
+  title: string,
+  content: string
+): Promise<{ id: string; webViewLink: string }> {
+  try {
+    // Create a Google Doc
+    const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: title,
+        mimeType: 'application/vnd.google-apps.document',
+        parents: [folderId],
+      }),
+    });
+
+    if (!createRes.ok) {
+      const err = await createRes.json().catch(() => ({}));
+      throw new Error(err.error?.message || 'Error al crear el documento de nota.');
+    }
+
+    const docData = await createRes.json();
+    const documentId = docData.id;
+
+    // Add content to the document
+    const requests = [
+      {
+        insertText: {
+          text: content,
+          location: { index: 1 },
+        },
+      },
+    ];
+
+    const updateRes = await fetch(`https://docs.googleapis.com/v1/documents/${documentId}:batchUpdate`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ requests }),
+    });
+
+    if (!updateRes.ok) {
+      console.warn('[Google Docs API] Failed to add content to additional note:', await updateRes.text());
+    }
+
+    return {
+      id: documentId,
+      webViewLink: `https://docs.google.com/document/d/${documentId}/edit`,
+    };
+  } catch (err: any) {
+    console.error('Error creating additional note:', err);
+    throw err;
+  }
+}
+
