@@ -1,6 +1,5 @@
 import express from "express";
 import path from "path";
-import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -27,11 +26,22 @@ const isServerless = !!(
   process.env._HANDLER
 );
 
-// Lazy-initialize Gemini SDK to prevent startup crashes when GEMINI_API_KEY is missing
-let aiInstance: GoogleGenAI | null = null;
-let lastUsedKey: string | null = null;
+// Local enum for Gemini Type schema to bypass importing statically from @google/genai
+enum Type {
+  OBJECT = "OBJECT",
+  STRING = "STRING",
+  BOOLEAN = "BOOLEAN",
+  ARRAY = "ARRAY",
+  INTEGER = "INTEGER",
+  NUMBER = "NUMBER"
+}
 
-function getGeminiClient(customKey?: string): GoogleGenAI {
+// Lazy-initialize Gemini SDK to prevent startup crashes when GEMINI_API_KEY is missing
+let aiInstance: any = null;
+let lastUsedKey: string | null = null;
+let GoogleGenAIClass: any = null;
+
+async function getGeminiClient(customKey?: string): Promise<any> {
   let apiKey = "";
   
   // 1. Check custom user key passed in request headers (and ensure it's not a placeholder string)
@@ -66,8 +76,14 @@ function getGeminiClient(customKey?: string): GoogleGenAI {
   console.log(`[Gemini SDK] Inicializando cliente. Longitud de clave: ${apiKey.length}. Finaliza con: ...${apiKey.slice(-4)}`);
   
   try {
+    if (!GoogleGenAIClass) {
+      console.log("[Gemini SDK] Cargando módulo @google/genai de forma dinámica...");
+      const genaiModule = await import("@google/genai");
+      GoogleGenAIClass = genaiModule.GoogleGenAI;
+    }
+
     if (!aiInstance || lastUsedKey !== apiKey) {
-      aiInstance = new GoogleGenAI({
+      aiInstance = new GoogleGenAIClass({
         apiKey: apiKey,
         httpOptions: {
           headers: {
@@ -79,7 +95,7 @@ function getGeminiClient(customKey?: string): GoogleGenAI {
     }
     return aiInstance;
   } catch (err: any) {
-    console.error("[Gemini SDK] Error al inicializar GoogleGenAI:", err);
+    console.error("[Gemini SDK] Error al inicializar GoogleGenAI de forma dinámica:", err);
     throw new Error(`Error de inicialización de la IA de Gemini: ${err.message || err}`);
   }
 }
@@ -114,7 +130,7 @@ app.get("/api/config-status", (req, res) => {
 app.post("/api/test-key", async (req, res) => {
   try {
     const customKey = req.headers['x-gemini-key'] as string;
-    const ai = getGeminiClient(customKey);
+    const ai = await getGeminiClient(customKey);
 
     const modelsToTry = [
       "gemini-3.5-flash",
@@ -174,7 +190,7 @@ app.post("/api/analyze", async (req, res) => {
       }
 
       const customKey = req.headers['x-gemini-key'] as string;
-      const ai = getGeminiClient(customKey);
+      const ai = await getGeminiClient(customKey);
 
       const systemInstruction = `Eres un Oficial de Cumplimiento Normativo (Compliance Officer) corporativo de alta prioridad.
 Tu tarea es analizar detalladamente el texto de una conversación/comunicación entre un miembro del equipo comercial y un tercero (cliente, socio, proveedor, etc.) según la política estricta de CERO TOLERANCIA de la empresa.
