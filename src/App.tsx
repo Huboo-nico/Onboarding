@@ -912,6 +912,28 @@ export default function App() {
                         <li>Copia el <strong>ID de cliente</strong> generado (el texto largo que termina en <code className="bg-slate-200 px-0.5 rounded font-mono">.apps.googleusercontent.com</code>) y pégalo aquí abajo:</li>
                       </ol>
 
+                      {/* Error 403 Troubleshooting block */}
+                      <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-slate-700">
+                        <div className="font-semibold text-amber-800 text-[11px] flex items-center gap-1.5 mb-1">
+                          <span className="flex h-2 w-2 relative">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                          </span>
+                          ¿Te aparece el Error "Acceso bloqueado: App no verificada" o "Error 403: access_denied"?
+                        </div>
+                        <p className="text-[10px] leading-relaxed text-slate-600 mb-2">
+                          Esto se debe a que tu proyecto de Google Cloud está en estado de <strong>Prueba (Testing)</strong> por defecto y no permite accesos externos sin autorizar previamente los correos de prueba.
+                        </p>
+                        <div className="text-[10px] font-medium text-slate-800 mb-1">Cómo solucionarlo en 1 minuto:</div>
+                        <ol className="list-decimal pl-4 text-[10px] flex flex-col gap-1 text-slate-600">
+                          <li>Entra a la <a href="https://console.cloud.google.com/apis/credentials/consent" target="_blank" rel="noopener noreferrer" className="text-amber-700 underline font-semibold">Pantalla de consentimiento de OAuth de Google Cloud</a>.</li>
+                          <li>Busca la sección llamada <strong>Usuarios de prueba (Test users)</strong>.</li>
+                          <li>Haz clic en el botón <strong>+ ADD USERS (Agregar usuarios)</strong>.</li>
+                          <li>Agrega tu correo electrónico exacto: <code className="bg-amber-100 border border-amber-250 px-1 py-0.5 rounded text-amber-950 font-mono select-all font-bold">huboo.nicolas@gmail.com</code> y guarda los cambios.</li>
+                          <li><em>(Opcional)</em> Si quieres que cualquiera pueda usar la app sin configurar usuarios, puedes hacer clic en el botón <strong>Publicar aplicación (Publish app)</strong> en esa misma pantalla de consentimiento de Google Cloud para pasarla a producción.</li>
+                        </ol>
+                      </div>
+
                       <div className="flex flex-col gap-1.5 mt-2">
                         <label className="font-semibold text-slate-700 text-[11px]">ID de Cliente de Google (OAuth Client ID):</label>
                         <div className="flex gap-2">
