@@ -60,6 +60,51 @@ export default function App() {
   const [checkingConfig, setCheckingConfig] = useState<boolean>(false);
   const [customGeminiKey, setCustomGeminiKey] = useState<string>('');
   const [showCustomGeminiInput, setShowCustomGeminiInput] = useState<boolean>(false);
+  const [testingConnection, setTestingConnection] = useState<boolean>(false);
+  const [connectionResult, setConnectionResult] = useState<{
+    success: boolean;
+    model?: string;
+    message?: string;
+    error?: string;
+  } | null>(null);
+
+  const testGeminiConnection = async () => {
+    setTestingConnection(true);
+    setConnectionResult(null);
+    try {
+      const savedKey = localStorage.getItem('custom_gemini_api_key') || '';
+      const response = await fetch('/api/test-key', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-gemini-key': savedKey,
+        },
+      });
+
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setConnectionResult({
+          success: true,
+          model: data.model,
+          message: data.message || 'Conexión exitosa con Gemini.',
+        });
+        setHasGeminiKey(true);
+      } else {
+        setConnectionResult({
+          success: false,
+          error: data.error || 'Error de autenticación o conexión.',
+        });
+      }
+    } catch (err: any) {
+      console.error('Error testing Gemini key:', err);
+      setConnectionResult({
+        success: false,
+        error: err.message || 'Error de red o comunicación con el servidor.',
+      });
+    } finally {
+      setTestingConnection(false);
+    }
+  };
 
   const checkConfigStatus = async () => {
     setCheckingConfig(true);
@@ -615,16 +660,42 @@ export default function App() {
                   <span className={`w-2 h-2 rounded-full ${hasGeminiKey === null ? 'bg-amber-400 animate-pulse' : hasGeminiKey ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`} />
                   Servidor Vercel: {hasGeminiKey === null ? 'Comprobando...' : hasGeminiKey ? '🟢 Clave de API Detectada' : '🔴 Clave de API NO Detectada'}
                 </span>
-                <button
-                  type="button"
-                  onClick={checkConfigStatus}
-                  disabled={checkingConfig}
-                  className="text-indigo-600 hover:text-indigo-800 font-bold uppercase text-[9px] font-mono flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-3 h-3 ${checkingConfig ? 'animate-spin' : ''}`} />
-                  {checkingConfig ? 'Verificando...' : 'Comprobar'}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={testGeminiConnection}
+                    disabled={testingConnection}
+                    className="text-indigo-600 hover:text-indigo-800 font-bold uppercase text-[9px] font-mono flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    title="Realizar una prueba de conexión real enviando un mensaje de prueba a Gemini"
+                  >
+                    {testingConnection ? 'Probando...' : 'Probar Conexión'}
+                  </button>
+                  <span className="text-slate-300">|</span>
+                  <button
+                    type="button"
+                    onClick={checkConfigStatus}
+                    disabled={checkingConfig}
+                    className="text-indigo-600 hover:text-indigo-800 font-bold uppercase text-[9px] font-mono flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${checkingConfig ? 'animate-spin' : ''}`} />
+                    {checkingConfig ? 'Verificando...' : 'Comprobar'}
+                  </button>
+                </div>
               </div>
+
+              {/* Display connection test result */}
+              {connectionResult && (
+                <div className={`p-2.5 rounded text-[11px] leading-relaxed border animate-fadeIn ${connectionResult.success ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'}`}>
+                  <div className="font-bold flex items-center gap-1 mb-0.5">
+                    {connectionResult.success ? '✓ ¡Conexión Exitosa!' : '✗ Error de Conexión'}
+                  </div>
+                  <p className="text-[10px] text-slate-700 font-sans">
+                    {connectionResult.success 
+                      ? `${connectionResult.message} Modelo verificado: ${connectionResult.model}` 
+                      : connectionResult.error}
+                  </p>
+                </div>
+              )}
 
               {/* Custom manual Gemini API Key inputs */}
               <div className="border-t border-slate-200 pt-2 flex flex-col gap-1.5">

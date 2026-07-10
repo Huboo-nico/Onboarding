@@ -17,12 +17,21 @@ let aiInstance: GoogleGenAI | null = null;
 let lastUsedKey: string | null = null;
 
 function getGeminiClient(customKey?: string): GoogleGenAI {
-  const apiKey = customKey || process.env.GEMINI_API_KEY;
+  let apiKey = customKey || process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error(
       "Falta la variable de entorno GEMINI_API_KEY o una clave manual. Por favor, asegúrate de añadir GEMINI_API_KEY en Vercel (Settings > Environment Variables) o ingresa tu clave manualmente en el panel de control de la app."
     );
   }
+  
+  // Clean up the key: trim whitespace and strip enclosing quotes
+  apiKey = apiKey.trim();
+  if ((apiKey.startsWith('"') && apiKey.endsWith('"')) || (apiKey.startsWith("'") && apiKey.endsWith("'"))) {
+    apiKey = apiKey.slice(1, -1).trim();
+  }
+
+  // Debugging info (safe)
+  console.log(`[Gemini SDK] Inicializando cliente. Longitud de clave: ${apiKey.length}. Finaliza con: ...${apiKey.slice(-4)}`);
   
   if (!aiInstance || lastUsedKey !== apiKey) {
     aiInstance = new GoogleGenAI({
@@ -45,10 +54,78 @@ app.get("/api/health", (req, res) => {
 
 // Config Status check
 app.get("/api/config-status", (req, res) => {
-  const customKey = req.headers['x-gemini-key'] as string;
+  let customKey = req.headers['x-gemini-key'] as string;
+  let hasKey = false;
+  if (customKey) {
+    customKey = customKey.trim();
+    if ((customKey.startsWith('"') && customKey.endsWith('"')) || (customKey.startsWith("'") && customKey.endsWith("'"))) {
+      customKey = customKey.slice(1, -1).trim();
+    }
+    hasKey = customKey.length > 0;
+  }
+  if (!hasKey && process.env.GEMINI_API_KEY) {
+    const envKey = process.env.GEMINI_API_KEY.trim();
+    hasKey = envKey.length > 0;
+  }
+
   res.json({
-    hasGeminiKey: !!(customKey || process.env.GEMINI_API_KEY),
+    hasGeminiKey: hasKey,
   });
+});
+
+// Diagnostic API Key connection test
+app.post("/api/test-key", async (req, res) => {
+  try {
+    const customKey = req.headers['x-gemini-key'] as string;
+    const ai = getGeminiClient(customKey);
+
+    const modelsToTry = [
+      "gemini-3.5-flash",
+      "gemini-flash-latest",
+      "gemini-3.1-flash-lite"
+    ];
+
+    let success = false;
+    let modelUsed = "";
+    let rawError = "";
+
+    for (const modelName of modelsToTry) {
+      try {
+        console.log(`[Diagnostic] Probando clave con modelo: ${modelName}`);
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: "Di únicamente la palabra 'OK' si recibes este mensaje de prueba de conexión.",
+        });
+        if (response && response.text) {
+          success = true;
+          modelUsed = modelName;
+          break;
+        }
+      } catch (err: any) {
+        console.warn(`[Diagnostic] Falló prueba con ${modelName}:`, err.message || err);
+        rawError = err.message || JSON.stringify(err);
+      }
+    }
+
+    if (success) {
+      return res.json({
+        success: true,
+        model: modelUsed,
+        message: "¡Conexión exitosa con la API de Gemini!"
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: rawError || "Error desconocido al intentar conectar con Gemini."
+      });
+    }
+  } catch (error: any) {
+    console.error("Error en endpoint /api/test-key:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message || "Error al inicializar el cliente de Gemini o procesar la prueba."
+    });
+  }
 });
 
 // Analysis endpoint using Gemini 3.5 Flash with structured JSON output
