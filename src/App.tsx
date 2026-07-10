@@ -54,10 +54,35 @@ export default function App() {
   const [exportedFolderName, setExportedFolderName] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
 
+  // Server Diagnostics State
+  const [hasGeminiKey, setHasGeminiKey] = useState<boolean | null>(null);
+  const [checkingConfig, setCheckingConfig] = useState<boolean>(false);
+
+  const checkConfigStatus = async () => {
+    setCheckingConfig(true);
+    try {
+      const res = await fetch('/api/config-status');
+      if (res.ok) {
+        const data = await res.json();
+        setHasGeminiKey(!!data.hasGeminiKey);
+      } else {
+        setHasGeminiKey(false);
+      }
+    } catch (err) {
+      console.error('Error fetching config status:', err);
+      setHasGeminiKey(false);
+    } finally {
+      setCheckingConfig(false);
+    }
+  };
+
   // Initialize and load clients history
   useEffect(() => {
     // Check if Firebase key is placeholder (which indicates Google OAuth is not completed yet)
     setIsWorkspaceConfigured(!isUsingPlaceholder());
+
+    // Check Gemini key configuration on start
+    checkConfigStatus();
 
     // Load custom Google Client ID if saved
     const savedClientId = localStorage.getItem('custom_google_client_id') || import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
@@ -566,6 +591,42 @@ export default function App() {
                 )}
               </div>
             )}
+
+            {/* Vercel Server Diagnostics Status Card */}
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded text-xs">
+              <div className="flex justify-between items-center">
+                <span className="font-semibold text-slate-700 flex items-center gap-1.5">
+                  <span className={`w-2 h-2 rounded-full ${hasGeminiKey === null ? 'bg-amber-400 animate-pulse' : hasGeminiKey ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`} />
+                  Servidor Vercel: {hasGeminiKey === null ? 'Comprobando...' : hasGeminiKey ? '🟢 Clave de API Detectada' : '🔴 Clave de API NO Detectada'}
+                </span>
+                <button
+                  type="button"
+                  onClick={checkConfigStatus}
+                  disabled={checkingConfig}
+                  className="text-indigo-600 hover:text-indigo-800 font-bold uppercase text-[9px] font-mono flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3 h-3 ${checkingConfig ? 'animate-spin' : ''}`} />
+                  {checkingConfig ? 'Verificando...' : 'Comprobar'}
+                </button>
+              </div>
+              
+              {hasGeminiKey === false && (
+                <div className="text-[11px] text-slate-600 space-y-1.5 border-t border-slate-100 pt-2.5 mt-2 animate-fadeIn">
+                  <p className="font-medium text-rose-700">⚠️ Vercel no ha cargado tu GEMINI_API_KEY todavía.</p>
+                  <p className="leading-relaxed">
+                    Si ya agregaste la variable en Vercel, el error ocurre porque <strong>Vercel requiere un nuevo despliegue (Redeploy)</strong> para aplicar variables nuevas. Las variables no se actualizan solas en despliegues existentes.
+                  </p>
+                  <div className="bg-white p-2.5 rounded border border-rose-100 mt-1">
+                    <div className="font-bold text-slate-800 text-[10px] mb-1">Pasos para activar la clave de inmediato:</div>
+                    <ol className="list-decimal pl-4 text-[10px] space-y-1.5 text-slate-500">
+                      <li>Ve a tu proyecto en <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-semibold">Vercel</a> y entra a la pestaña <strong>Deployments</strong>.</li>
+                      <li>Busca tu último despliegue (el que está activo), haz clic en los <strong>tres puntos (...)</strong> de la derecha y selecciona <strong>Redeploy</strong>.</li>
+                      <li>Una vez que termine el despliegue (tarda unos 30 segundos), haz clic en el botón <strong>"Comprobar"</strong> de aquí arriba.</li>
+                    </ol>
+                  </div>
+                </div>
+              )}
+            </div>
 
             <button
               onClick={handleAnalyze}
