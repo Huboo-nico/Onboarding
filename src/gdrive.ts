@@ -95,35 +95,7 @@ export async function createKYCDocument(
     }
   }
   
-  // 3. Create the Google Doc inside the company folder (or root as fallback)
-  const docTitle = `Informe KYC - ${companyName} (${clientName})`;
-  const createDocBody: any = {
-    name: docTitle,
-    mimeType: 'application/vnd.google-apps.document',
-  };
-  
-  if (folderId) {
-    createDocBody.parents = [folderId];
-  }
-  
-  const createDocRes = await fetch('https://www.googleapis.com/drive/v3/files', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(createDocBody),
-  });
-  
-  if (!createDocRes.ok) {
-    const err = await createDocRes.json().catch(() => ({}));
-    throw new Error(err.error?.message || 'Error al crear el documento en Google Drive.');
-  }
-  
-  const docData = await createDocRes.json();
-  const documentId = docData.id;
-  
-  // 4. Build document text
+  // 3. Build document text
   const isCompliantText = data.isCompliant ? 'CONFORME (SÍ)' : 'ALERTA DE INCUMPLIMIENTO (NO - BRECHA DE POLÍTICA)';
   const severityText = data.breachSeverity === 'CRITICAL' ? 'CRÍTICA' : 'NINGUNA';
   
@@ -163,29 +135,40 @@ ${(data.nextStepsRequired || []).map(step => `   • ${step}`).join('\n')}
 AVISO DE COMPLIANCE: De acuerdo con la Política de Cero Tolerancia corporativa, no se pueden reanudar o mantener discusiones comerciales con la contraparte hasta que todos los puntos del Checklist KYC muestren [X] (Verificados).
   `;
   
-  // 5. Update Doc Content using Google Docs batchUpdate
-  const requests: BatchUpdateRequest[] = [
-    {
-      insertText: {
-        text: bodyText,
-        location: { index: 1 }
-      }
-    }
-  ];
-  
-  const updateRes = await fetch(`https://docs.googleapis.com/v1/documents/${documentId}:batchUpdate`, {
+  // 4. Create the Google Doc inside the company folder (or root as fallback) with content via multipart upload
+  const docTitle = `Informe KYC - ${companyName} (${clientName})`;
+  const boundary = '314159265358979323846';
+  const metadata = {
+    name: docTitle,
+    mimeType: 'application/vnd.google-apps.document',
+    parents: folderId ? [folderId] : [],
+  };
+
+  const body =
+    `--${boundary}\r\n` +
+    'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+    JSON.stringify(metadata) + '\r\n' +
+    `--${boundary}\r\n` +
+    'Content-Type: text/plain; charset=UTF-8\r\n\r\n' +
+    bodyText + '\r\n' +
+    `--${boundary}--`;
+
+  const createDocRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
+      'Content-Type': `multipart/related; boundary=${boundary}`,
     },
-    body: JSON.stringify({ requests }),
+    body: body,
   });
-  
-  if (!updateRes.ok) {
-    const err = await updateRes.json().catch(() => ({}));
-    console.error('Error al aplicar formato al documento:', err);
+
+  if (!createDocRes.ok) {
+    const err = await createDocRes.json().catch(() => ({}));
+    throw new Error(err.error?.message || 'Error al crear el documento en Google Drive.');
   }
+
+  const docData = await createDocRes.json();
+  const documentId = docData.id;
   
   const docUrl = `https://docs.google.com/document/d/${documentId}/edit`;
   const folderUrl = folderId ? `https://drive.google.com/drive/folders/${folderId}` : 'https://drive.google.com';
@@ -270,18 +253,29 @@ export async function createAdditionalNote(
   content: string
 ): Promise<{ id: string; webViewLink: string }> {
   try {
-    // Create a Google Doc
-    const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+    const boundary = '314159265358979323846';
+    const metadata = {
+      name: title,
+      mimeType: 'application/vnd.google-apps.document',
+      parents: [folderId],
+    };
+
+    const body =
+      `--${boundary}\r\n` +
+      'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+      JSON.stringify(metadata) + '\r\n' +
+      `--${boundary}\r\n` +
+      'Content-Type: text/plain; charset=UTF-8\r\n\r\n' +
+      content + '\r\n' +
+      `--${boundary}--`;
+
+    const createRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
+        'Content-Type': `multipart/related; boundary=${boundary}`,
       },
-      body: JSON.stringify({
-        name: title,
-        mimeType: 'application/vnd.google-apps.document',
-        parents: [folderId],
-      }),
+      body: body,
     });
 
     if (!createRes.ok) {
@@ -291,29 +285,6 @@ export async function createAdditionalNote(
 
     const docData = await createRes.json();
     const documentId = docData.id;
-
-    // Add content to the document
-    const requests = [
-      {
-        insertText: {
-          text: content,
-          location: { index: 1 },
-        },
-      },
-    ];
-
-    const updateRes = await fetch(`https://docs.googleapis.com/v1/documents/${documentId}:batchUpdate`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ requests }),
-    });
-
-    if (!updateRes.ok) {
-      console.warn('[Google Docs API] Failed to add content to additional note:', await updateRes.text());
-    }
 
     return {
       id: documentId,
