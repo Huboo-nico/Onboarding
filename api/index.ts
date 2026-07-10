@@ -28,10 +28,7 @@ enum Type {
 }
 
 // Lazy-initialize Gemini SDK to prevent startup crashes when GEMINI_API_KEY is missing
-let aiInstance: any = null;
-let lastUsedKey: string | null = null;
-
-function getGeminiClient(customKey?: string): any {
+function getGeminiClient(customKey?: string, useKeyIndex: 1 | 2 = 1): any {
   let apiKey = "";
   
   // 1. Check custom user key passed in request headers (and ensure it's not a placeholder string)
@@ -42,11 +39,17 @@ function getGeminiClient(customKey?: string): any {
     }
   }
   
-  // 2. Fallback to server-side process.env.GEMINI_API_KEY
-  if (!apiKey && process.env.GEMINI_API_KEY) {
-    const envKey = process.env.GEMINI_API_KEY.trim();
-    if (envKey && envKey !== "null" && envKey !== "undefined") {
-      apiKey = envKey;
+  // 2. Fallback to server-side process.env.GEMINI_API_KEY / GEMINI_API_KEY_2
+  if (!apiKey) {
+    const envKey1 = process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.trim() : "";
+    const envKey2 = process.env.GEMINI_API_KEY_2 ? process.env.GEMINI_API_KEY_2.trim() : "";
+    
+    if (useKeyIndex === 2 && envKey2 && envKey2 !== "null" && envKey2 !== "undefined" && envKey2 !== "MY_GEMINI_API_KEY") {
+      apiKey = envKey2;
+    } else if (envKey1 && envKey1 !== "null" && envKey1 !== "undefined" && envKey1 !== "MY_GEMINI_API_KEY") {
+      apiKey = envKey1;
+    } else if (envKey2 && envKey2 !== "null" && envKey2 !== "undefined" && envKey2 !== "MY_GEMINI_API_KEY") {
+      apiKey = envKey2;
     }
   }
 
@@ -63,21 +66,17 @@ function getGeminiClient(customKey?: string): any {
   }
 
   // Debugging info (safe)
-  console.log(`[Gemini SDK] Inicializando cliente. Longitud de clave: ${apiKey.length}. Finaliza con: ...${apiKey.slice(-4)}`);
+  console.log(`[Gemini SDK] Inicializando cliente (Key index target: ${useKeyIndex}). Longitud de clave: ${apiKey.length}. Finaliza con: ...${apiKey.slice(-4)}`);
   
   try {
-    if (!aiInstance || lastUsedKey !== apiKey) {
-      aiInstance = new GoogleGenAI({
-        apiKey: apiKey,
-        httpOptions: {
-          headers: {
-            'User-Agent': 'aistudio-build',
-          }
+    return new GoogleGenAI({
+      apiKey: apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
         }
-      });
-      lastUsedKey = apiKey;
-    }
-    return aiInstance;
+      }
+    });
   } catch (err: any) {
     console.error("[Gemini SDK] Error al inicializar GoogleGenAI:", err);
     throw new Error(`Error de inicialización de la IA de Gemini: ${err.message || err}`);
@@ -102,11 +101,18 @@ app.get("/api/config-status", (req, res) => {
   }
   if (!hasKey && process.env.GEMINI_API_KEY) {
     const envKey = process.env.GEMINI_API_KEY.trim();
-    hasKey = envKey.length > 0;
+    hasKey = envKey.length > 0 && envKey !== "MY_GEMINI_API_KEY";
+  }
+
+  let hasKey2 = false;
+  if (process.env.GEMINI_API_KEY_2) {
+    const envKey2 = process.env.GEMINI_API_KEY_2.trim();
+    hasKey2 = envKey2.length > 0 && envKey2 !== "MY_GEMINI_API_KEY";
   }
 
   res.json({
     hasGeminiKey: hasKey,
+    hasGeminiKey2: hasKey2,
   });
 });
 
@@ -189,7 +195,7 @@ app.post("/api/analyze", async (req, res) => {
     }
 
     const customKey = req.headers['x-gemini-key'] as string;
-    const ai = getGeminiClient(customKey);
+    let ai = getGeminiClient(customKey, 1);
 
     const systemInstruction = `Eres un Oficial de Cumplimiento Normativo (Compliance Officer) corporativo de alta prioridad.
 Tu tarea es analizar detalladamente el texto de una conversación/comunicación entre un miembro del equipo comercial y un tercero (cliente, socio, proveedor, etc.) según la política estricta de CERO TOLERANCIA de la empresa.
@@ -226,89 +232,140 @@ Tu rol:
       "gemini-3.1-flash-lite"
     ];
 
-    for (const modelName of modelsToTry) {
-      try {
-        console.log(`[Gemini API] Intentando análisis con modelo: ${modelName}`);
-        const response = await ai.models.generateContent({
-          model: modelName,
-          contents: `Analiza la siguiente conversación/transcripción de llamada:
-"${transcript}"`,
-          config: {
-            systemInstruction,
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                clientName: { type: Type.STRING, description: "Full name of the person/contact. 'Unknown' if not mentioned." },
-                companyName: { type: Type.STRING, description: "Name of the counterparty's company. 'Unknown' if not mentioned." },
-                role: { type: Type.STRING, description: "Title or role of the contact. 'Unknown' if not mentioned." },
-                country: { type: Type.STRING, description: "Country or region of operation. 'Unknown' if not mentioned." },
-                contactInfo: { type: Type.STRING, description: "Contact details (email, phone). 'Unknown' if not mentioned." },
-                
-                kycChecklist: {
-                  type: Type.OBJECT,
-                  properties: {
-                    identityEstablished: { type: Type.BOOLEAN, description: "Whether the legal identity of the company/person was obtained and verified." },
-                    ownershipVerified: { type: Type.BOOLEAN, description: "Whether Ultimate Beneficial Owners (UBO) have been obtained or verified." },
-                    businessActivityDefined: { type: Type.BOOLEAN, description: "Whether the business purpose and activity have been formally defined." },
-                    riskAssessmentCompleted: { type: Type.BOOLEAN, description: "Whether a basic risk profiling/PEP check was completed." }
-                  },
-                  required: ["identityEstablished", "ownershipVerified", "businessActivityDefined", "riskAssessmentCompleted"]
-                },
-                
-                commercialDiscussionsDetected: { type: Type.BOOLEAN, description: "Whether any discussions regarding prices, fees, payment terms, or custom коммерческий quotes were detected." },
-                commercialDetailsFound: { type: Type.STRING, description: "Specific details of commercial topics discussed. MUST be in English. 'None' if not applicable." },
-                isCompliant: { type: Type.BOOLEAN, description: "Whether the call was compliant with the Corporate Zero Tolerance policy (no commercial talk before KYC completes)." },
-                breachSeverity: { type: Type.STRING, description: "Severity of the breach. Must be 'NONE' (compliant) or 'CRITICAL' (if Zero Tolerance policy was breached)." },
-                
-                summaryOfCall: { type: Type.STRING, description: "Brief audit summary of the conversation (2-3 sentences), focusing on compliance aspects. MUST be in English." },
-                nextStepsRequired: { 
-                  type: Type.ARRAY, 
-                  items: { type: Type.STRING },
-                  description: "List of 3 to 5 immediate actions required to bring the client into full compliance. MUST be in English."
-                },
-                taxId: { type: Type.STRING, description: "Extracted CIF, NIF, or VAT tax registration number if found. Set to 'None' if not present." },
-                taxIdResearch: { type: Type.STRING, description: "Brief format/validity research and country check based on the tax identifier found. MUST be in English. 'No VAT/CIF/NIF tax identifier found in the transcript.' if not applicable." }
-              },
-              required: [
-                "clientName", "companyName", "role", "country", "contactInfo", 
-                "kycChecklist", "commercialDiscussionsDetected", "commercialDetailsFound", 
-                "isCompliant", "breachSeverity", "summaryOfCall", "nextStepsRequired",
-                "taxId", "taxIdResearch"
-              ]
-            }
-          }
-        });
+    // Helper function to run analysis with a specific client instance
+    const attemptAnalysis = async (clientInstance: any) => {
+      let runResult: any = null;
+      let runError: any = null;
 
-        const responseText = response.text || "{}";
-        result = JSON.parse(responseText.trim());
-        console.log(`[Gemini API] ¡Análisis exitoso con el modelo ${modelName}!`);
-        break; // Break the loop if we have a successful result
-      } catch (err: any) {
-        console.warn(`[Gemini API] Fallo con el modelo ${modelName}:`, err.message || err);
-        lastError = err;
-        
-        const errMsg = err.message || "";
-        // If the error is related to API key, authorization, or quota, fail fast to avoid 504 timeouts.
-        if (
-          errMsg.includes("API_KEY_INVALID") || 
-          errMsg.includes("API key not valid") || 
-          errMsg.includes("quota") || 
-          errMsg.includes("quota exceeded") || 
-          errMsg.includes("429") || 
-          errMsg.includes("RESOURCE_EXHAUSTED") || 
-          errMsg.includes("PERMISSION_DENIED") ||
-          errMsg.includes("block") ||
-          errMsg.includes("permission")
-        ) {
-          console.log("[Gemini API] Error crítico de clave o cuota. Deteniendo reintentos y lanzando error inmediato.");
-          break;
+      for (const modelName of modelsToTry) {
+        try {
+          console.log(`[Gemini API] Intentando análisis estructurado con modelo: ${modelName}`);
+          const response = await clientInstance.models.generateContent({
+            model: modelName,
+            contents: `Analiza la siguiente conversación/transcripción de llamada:
+"${transcript}"`,
+            config: {
+              systemInstruction,
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                  clientName: { type: Type.STRING, description: "Full name of the person/contact. 'Unknown' if not mentioned." },
+                  companyName: { type: Type.STRING, description: "Name of the counterparty's company. 'Unknown' if not mentioned." },
+                  role: { type: Type.STRING, description: "Title or role of the contact. 'Unknown' if not mentioned." },
+                  country: { type: Type.STRING, description: "Country or region of operation. 'Unknown' if not mentioned." },
+                  contactInfo: { type: Type.STRING, description: "Contact details (email, phone). 'Unknown' if not mentioned." },
+                  
+                  kycChecklist: {
+                    type: Type.OBJECT,
+                    properties: {
+                      identityEstablished: { type: Type.BOOLEAN, description: "Whether the legal identity of the company/person was obtained and verified." },
+                      ownershipVerified: { type: Type.BOOLEAN, description: "Whether Ultimate Beneficial Owners (UBO) have been obtained or verified." },
+                      businessActivityDefined: { type: Type.BOOLEAN, description: "Whether the business purpose and activity have been formally defined." },
+                      riskAssessmentCompleted: { type: Type.BOOLEAN, description: "Whether a basic risk profiling/PEP check was completed." }
+                    },
+                    required: ["identityEstablished", "ownershipVerified", "businessActivityDefined", "riskAssessmentCompleted"]
+                  },
+                  
+                  commercialDiscussionsDetected: { type: Type.BOOLEAN, description: "Whether any discussions regarding prices, fees, payment terms, or custom commercial quotes were detected." },
+                  commercialDetailsFound: { type: Type.STRING, description: "Specific details of commercial topics discussed. MUST be in English. 'None' if not applicable." },
+                  isCompliant: { type: Type.BOOLEAN, description: "Whether the call was compliant with the Corporate Zero Tolerance policy (no commercial talk before KYC completes)." },
+                  breachSeverity: { type: Type.STRING, description: "Severity of the breach. Must be 'NONE' (compliant) or 'CRITICAL' (if Zero Tolerance policy was breached)." },
+                  
+                  summaryOfCall: { type: Type.STRING, description: "Brief audit summary of the conversation (2-3 sentences), focusing on compliance aspects. MUST be in English." },
+                  nextStepsRequired: { 
+                    type: Type.ARRAY, 
+                    items: { type: Type.STRING },
+                    description: "List of 3 to 5 immediate actions required to bring the client into full compliance. MUST be in English."
+                  },
+                  taxId: { type: Type.STRING, description: "Extracted CIF, NIF, or VAT tax registration number if found. Set to 'None' if not present." },
+                  taxIdResearch: { type: Type.STRING, description: "Brief format/validity research and country check based on the tax identifier found. MUST be in English. 'No VAT/CIF/NIF tax identifier found in the transcript.' if not applicable." }
+                },
+                required: [
+                  "clientName", "companyName", "role", "country", "contactInfo", 
+                  "kycChecklist", "commercialDiscussionsDetected", "commercialDetailsFound", 
+                  "isCompliant", "breachSeverity", "summaryOfCall", "nextStepsRequired",
+                  "taxId", "taxIdResearch"
+                ]
+              }
+            }
+          });
+
+          const responseText = response.text || "{}";
+          runResult = JSON.parse(responseText.trim());
+          console.log(`[Gemini API] ¡Análisis estructurado exitoso con el modelo ${modelName}!`);
+          break; // Break model loop on success
+        } catch (err: any) {
+          console.warn(`[Gemini API] Fallo estructurado con el modelo ${modelName}:`, err.message || err);
+          runError = err;
+          
+          const errMsg = err.message || "";
+          // If the error is related to API key, authorization, or quota, fail-fast this client loop
+          if (
+            errMsg.includes("API_KEY_INVALID") || 
+            errMsg.includes("API key not valid") || 
+            errMsg.includes("quota") || 
+            errMsg.includes("quota exceeded") || 
+            errMsg.includes("429") || 
+            errMsg.includes("RESOURCE_EXHAUSTED") || 
+            errMsg.includes("PERMISSION_DENIED") ||
+            errMsg.includes("block") ||
+            errMsg.includes("permission")
+          ) {
+            console.log("[Gemini API] Error crítico de clave o cuota detectado. Deteniendo cascada de modelos para este cliente.");
+            break;
+          }
         }
-        // Continúa al siguiente modelo de la lista
+      }
+      return { result: runResult, lastError: runError };
+    };
+
+    // 1. Run analysis with Key 1 Client
+    console.log("[Gemini API] Ejecutando análisis inicial con Cliente Primario (Key 1)...");
+    const firstAttempt = await attemptAnalysis(ai);
+    result = firstAttempt.result;
+    lastError = firstAttempt.lastError;
+
+    // Check if backup key GEMINI_API_KEY_2 is configured and we failed the first attempt
+    const hasKey2 = process.env.GEMINI_API_KEY_2 && process.env.GEMINI_API_KEY_2.trim() !== "" && process.env.GEMINI_API_KEY_2 !== "MY_GEMINI_API_KEY";
+    
+    if (!result && hasKey2) {
+      console.warn("[Gemini API] Intento inicial falló o fue denegado. Activando conmutación por error a GEMINI_API_KEY_2...");
+      try {
+        const ai2 = getGeminiClient(customKey, 2);
+        const secondAttempt = await attemptAnalysis(ai2);
+        result = secondAttempt.result;
+        lastError = secondAttempt.lastError;
+        if (result) {
+          console.log("[Gemini API] ¡Análisis exitoso de conmutación por error con Cliente Secundario!");
+          // Upgrade our active client to ai2 for subsequent unstructured fallbacks if needed
+          ai = ai2;
+        }
+      } catch (err2: any) {
+        console.error("[Gemini API] Falló el intento alternativo con GEMINI_API_KEY_2:", err2.message || err2);
       }
     }
 
-    // Si todos los intentos estructurados fallaron, probamos un fallback de texto libre a JSON
+    // Helper to format friendly error outputs
+    const formatFriendlyError = (err: any) => {
+      const errMsg = err?.message || "";
+      let friendlyError = "No se pudo procesar la llamada con la IA de Gemini.";
+
+      if (errMsg.includes("API_KEY_INVALID") || errMsg.includes("API key not valid")) {
+        friendlyError = "La API Key de Gemini ingresada NO es válida. Por favor, asegúrate de haberla copiado completa, sin comillas ni espacios adicionales.";
+      } else if (errMsg.includes("quota") || errMsg.includes("quota exceeded") || errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED")) {
+        friendlyError = "Límite de cuota excedido para tu API Key de Gemini. Si es una clave gratuita, tiene un límite estricto de solicitudes por minuto. Por favor, espera un minuto o configura una clave secundaria.";
+      } else if (errMsg.includes("block") || errMsg.includes("permission") || errMsg.includes("PERMISSION_DENIED")) {
+        friendlyError = "Acceso denegado. Es posible que tu API Key no tenga los permisos necesarios o esté restringida para ciertos modelos o regiones.";
+      } else if (errMsg.includes("not found") || errMsg.includes("not_found")) {
+        friendlyError = "Modelo no encontrado o no disponible para esta API Key. Asegúrate de usar una clave que tenga acceso a la API de Gemini.";
+      } else {
+        friendlyError = `Error de la API de Gemini: ${errMsg}`;
+      }
+      return friendlyError;
+    };
+
+    // 2. Unstructured fallback if structured analysis failed for both keys
     if (!result) {
       const lastErrMsg = lastError?.message || "";
       const isKeyOrQuotaError = lastErrMsg && (
@@ -323,17 +380,9 @@ Tu rol:
         lastErrMsg.includes("permission")
       );
 
-      if (isKeyOrQuotaError) {
-        console.log("[Gemini API] Bypassing fallback due to critical API key/quota error.");
-        let friendlyError = "La API Key de Gemini ingresada NO es válida. Por favor, asegúrate de haberla configurado correctamente.";
-        if (lastErrMsg.includes("quota") || lastErrMsg.includes("quota exceeded") || lastErrMsg.includes("429") || lastErrMsg.includes("RESOURCE_EXHAUSTED")) {
-          friendlyError = "Límite de cuota excedido para esta API Key de Gemini. Si es una clave gratuita, tiene un límite estricto de solicitudes por minuto. Por favor, espera un minuto o prueba con otra clave.";
-        } else if (lastErrMsg.includes("block") || lastErrMsg.includes("permission") || lastErrMsg.includes("PERMISSION_DENIED")) {
-          friendlyError = "Acceso denegado. Es posible que tu API Key no tenga los permisos necesarios o esté restringida para ciertos modelos o regiones.";
-        } else {
-          friendlyError = `Error de la API de Gemini: ${lastErrMsg}`;
-        }
-        throw new Error(friendlyError);
+      if (isKeyOrQuotaError && !hasKey2) {
+        console.log("[Gemini API] Omitiendo fallback debido a error de cuota/clave sin clave secundaria configurada.");
+        throw new Error(formatFriendlyError(lastError));
       }
 
       try {
@@ -373,27 +422,55 @@ Debes devolver obligatoriamente un objeto JSON plano que cumpla exactamente con 
 
         const responseText = fallbackResponse.text || "{}";
         result = JSON.parse(responseText.trim());
-        console.log("[Gemini API] ¡Análisis exitoso de respaldo (sin responseSchema estricto)!");
+        console.log("[Gemini API] ¡Análisis de respaldo exitoso!");
       } catch (fallbackErr: any) {
-        console.error("[Gemini API] Fallo definitivo en el análisis:", fallbackErr);
-        
-        // Formatear el error definitivo con diagnósticos útiles
-        const errMsg = lastError?.message || fallbackErr?.message || "";
-        let friendlyError = "No se pudo procesar la llamada con la IA de Gemini.";
+        // If backup key is available and we haven't tried it yet for fallback
+        if (hasKey2 && ai !== getGeminiClient(customKey, 2)) {
+          try {
+            console.warn("[Gemini API] Fallback primario falló. Reintentando fallback con Cliente Secundario...");
+            const ai2 = getGeminiClient(customKey, 2);
+            const fallbackResponse = await ai2.models.generateContent({
+              model: "gemini-flash-latest",
+              contents: `Analiza la siguiente conversación/transcripción de llamada:
+"${transcript}"
 
-        if (errMsg.includes("API_KEY_INVALID") || errMsg.includes("API key not valid")) {
-          friendlyError = "La API Key de Gemini ingresada NO es válida. Por favor, asegúrate de haberla copiado completa, sin caracteres adicionales, comillas ni espacios adicionales.";
-        } else if (errMsg.includes("quota") || errMsg.includes("quota exceeded") || errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED")) {
-          friendlyError = "Límite de cuota excedido para esta API Key de Gemini. Si es una clave gratuita, tiene un límite estricto de solicitudes por minuto. Por favor, espera un minuto o prueba con otra clave.";
-        } else if (errMsg.includes("block") || errMsg.includes("permission") || errMsg.includes("PERMISSION_DENIED")) {
-          friendlyError = "Acceso denegado. Es posible que tu API Key no tenga los permisos necesarios o esté restringida para ciertos modelos o regiones.";
-        } else if (errMsg.includes("not found") || errMsg.includes("not_found")) {
-          friendlyError = "Modelo no encontrado o no disponible para esta API Key. Asegúrate de usar una clave que tenga acceso a la API de Gemini.";
+Debes devolver obligatoriamente un objeto JSON plano que cumpla exactamente con esta estructura y con todos los detalles redactados en INGLÉS:
+{
+  "clientName": "Contact name or 'Unknown'",
+  "companyName": "Company name or 'Unknown'",
+  "role": "Role or 'Unknown'",
+  "country": "Country or 'Unknown'",
+  "contactInfo": "Email/phone or 'Unknown'",
+  "kycChecklist": {
+    "identityEstablished": true/false,
+    "ownershipVerified": true/false,
+    "businessActivityDefined": true/false,
+    "riskAssessmentCompleted": true/false
+  },
+  "commercialDiscussionsDetected": true/false,
+  "commercialDetailsFound": "details of commercial talks in English or 'None'",
+  "isCompliant": true/false,
+  "breachSeverity": "NONE" or "CRITICAL",
+  "summaryOfCall": "brief audit summary in English",
+  "nextStepsRequired": ["action 1 in English", "action 2 in English"],
+  "taxId": "extracted VAT/CIF/NIF or 'None'",
+  "taxIdResearch": "brief research analysis of tax number in English"
+}`,
+              config: {
+                systemInstruction,
+                responseMimeType: "application/json"
+              }
+            });
+            const responseText = fallbackResponse.text || "{}";
+            result = JSON.parse(responseText.trim());
+            console.log("[Gemini API] ¡Análisis de respaldo exitoso con Cliente Secundario!");
+          } catch (fallbackErr2: any) {
+            console.error("[Gemini API] Falló el fallback alternativo también:", fallbackErr2);
+            throw new Error(formatFriendlyError(lastError || fallbackErr2));
+          }
         } else {
-          friendlyError = `Error de la API de Gemini: ${errMsg}`;
+          throw new Error(formatFriendlyError(lastError || fallbackErr));
         }
-
-        throw new Error(friendlyError);
       }
     }
 

@@ -74,6 +74,7 @@ export default function App() {
 
   // Server Diagnostics State
   const [hasGeminiKey, setHasGeminiKey] = useState<boolean | null>(null);
+  const [hasGeminiKey2, setHasGeminiKey2] = useState<boolean | null>(null);
   const [checkingConfig, setCheckingConfig] = useState<boolean>(false);
   const [customGeminiKey, setCustomGeminiKey] = useState<string>('');
   const [showCustomGeminiInput, setShowCustomGeminiInput] = useState<boolean>(false);
@@ -150,15 +151,19 @@ export default function App() {
         if (contentType.includes('application/json')) {
           const data = await res.json();
           setHasGeminiKey(!!data.hasGeminiKey);
+          setHasGeminiKey2(!!data.hasGeminiKey2);
         } else {
           setHasGeminiKey(false);
+          setHasGeminiKey2(false);
         }
       } else {
         setHasGeminiKey(false);
+        setHasGeminiKey2(false);
       }
     } catch (err) {
       console.error('Error fetching config status:', err);
       setHasGeminiKey(false);
+      setHasGeminiKey2(false);
     } finally {
       setCheckingConfig(false);
     }
@@ -809,12 +814,18 @@ export default function App() {
 
             {/* Vercel Server Diagnostics Status Card */}
             <div className="p-3.5 bg-slate-50 border border-slate-200 rounded text-xs flex flex-col gap-2.5">
-              <div className="flex justify-between items-center">
-                <span className="font-semibold text-slate-700 flex items-center gap-1.5">
-                  <span className={`w-2 h-2 rounded-full ${hasGeminiKey === null ? 'bg-amber-400 animate-pulse' : hasGeminiKey ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`} />
-                  Servidor Vercel: {hasGeminiKey === null ? 'Comprobando...' : hasGeminiKey ? '🟢 Clave de API Detectada' : '🔴 Clave de API NO Detectada'}
-                </span>
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-start">
+                <div className="flex flex-col gap-1">
+                  <span className="font-semibold text-slate-700 flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full ${hasGeminiKey === null ? 'bg-amber-400 animate-pulse' : hasGeminiKey ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                    Clave Principal (Key 1): {hasGeminiKey === null ? 'Comprobando...' : hasGeminiKey ? '🟢 Detectada' : '🔴 NO Detectada'}
+                  </span>
+                  <span className="font-semibold text-slate-700 flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full ${hasGeminiKey2 === null ? 'bg-amber-400 animate-pulse' : hasGeminiKey2 ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                    Clave Secundaria (Key 2 / Respaldo): {hasGeminiKey2 === null ? 'Comprobando...' : hasGeminiKey2 ? '🟢 Detectada (Failover Activo)' : '⚪ No Configurada'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 mt-1 sm:mt-0 shrink-0">
                   <button
                     type="button"
                     onClick={testGeminiConnection}
