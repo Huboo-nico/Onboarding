@@ -386,10 +386,12 @@ Tu rol:
       }
 
       try {
-        console.log("[Gemini API] Intentando análisis de respaldo sin responseSchema estricto usando gemini-flash-latest...");
-        const fallbackResponse = await ai.models.generateContent({
-          model: "gemini-flash-latest",
-          contents: `Analiza la siguiente conversación/transcripción de llamada:
+        console.log("[Gemini API] Intentando análisis de respaldo sin responseSchema estricto usando gemini-3.5-flash...");
+        let fallbackResponse;
+        try {
+          fallbackResponse = await ai.models.generateContent({
+            model: "gemini-3.5-flash",
+            contents: `Analiza la siguiente conversación/transcripción de llamada:
 "${transcript}"
 
 Debes devolver obligatoriamente un objeto JSON plano que cumpla exactamente con esta estructura y con todos los detalles redactados en INGLÉS:
@@ -414,11 +416,46 @@ Debes devolver obligatoriamente un objeto JSON plano que cumpla exactamente con 
   "taxId": "extracted VAT/CIF/NIF or 'None'",
   "taxIdResearch": "brief research analysis of tax number in English"
 }`,
-          config: {
-            systemInstruction,
-            responseMimeType: "application/json"
-          }
-        });
+            config: {
+              systemInstruction,
+              responseMimeType: "application/json"
+            }
+          });
+        } catch (errKey1Flash) {
+          console.warn("[Gemini API] Falló fallback con gemini-3.5-flash en Key 1. Probando gemini-flash-latest...");
+          fallbackResponse = await ai.models.generateContent({
+            model: "gemini-flash-latest",
+            contents: `Analiza la siguiente conversación/transcripción de llamada:
+"${transcript}"
+
+Debes devolver obligatoriamente un objeto JSON plano que cumpla exactamente con esta estructura y con todos los detalles redactados en INGLÉS:
+{
+  "clientName": "Contact name or 'Unknown'",
+  "companyName": "Company name or 'Unknown'",
+  "role": "Role or 'Unknown'",
+  "country": "Country or 'Unknown'",
+  "contactInfo": "Email/phone or 'Unknown'",
+  "kycChecklist": {
+    "identityEstablished": true/false,
+    "ownershipVerified": true/false,
+    "businessActivityDefined": true/false,
+    "riskAssessmentCompleted": true/false
+  },
+  "commercialDiscussionsDetected": true/false,
+  "commercialDetailsFound": "details of commercial talks in English or 'None'",
+  "isCompliant": true/false,
+  "breachSeverity": "NONE" or "CRITICAL",
+  "summaryOfCall": "brief audit summary in English",
+  "nextStepsRequired": ["action 1 in English", "action 2 in English"],
+  "taxId": "extracted VAT/CIF/NIF or 'None'",
+  "taxIdResearch": "brief research analysis of tax number in English"
+}`,
+            config: {
+              systemInstruction,
+              responseMimeType: "application/json"
+            }
+          });
+        }
 
         const responseText = fallbackResponse.text || "{}";
         result = JSON.parse(responseText.trim());
@@ -427,11 +464,13 @@ Debes devolver obligatoriamente un objeto JSON plano que cumpla exactamente con 
         // If backup key is available and we haven't tried it yet for fallback
         if (hasKey2 && ai !== getGeminiClient(customKey, 2)) {
           try {
-            console.warn("[Gemini API] Fallback primario falló. Reintentando fallback con Cliente Secundario...");
+            console.warn("[Gemini API] Fallback primario falló. Reintentando fallback con Cliente Secundario (Key 2)...");
             const ai2 = getGeminiClient(customKey, 2);
-            const fallbackResponse = await ai2.models.generateContent({
-              model: "gemini-flash-latest",
-              contents: `Analiza la siguiente conversación/transcripción de llamada:
+            let fallbackResponse2;
+            try {
+              fallbackResponse2 = await ai2.models.generateContent({
+                model: "gemini-3.5-flash",
+                contents: `Analiza la siguiente conversación/transcripción de llamada:
 "${transcript}"
 
 Debes devolver obligatoriamente un objeto JSON plano que cumpla exactamente con esta estructura y con todos los detalles redactados en INGLÉS:
@@ -456,12 +495,47 @@ Debes devolver obligatoriamente un objeto JSON plano que cumpla exactamente con 
   "taxId": "extracted VAT/CIF/NIF or 'None'",
   "taxIdResearch": "brief research analysis of tax number in English"
 }`,
-              config: {
-                systemInstruction,
-                responseMimeType: "application/json"
-              }
-            });
-            const responseText = fallbackResponse.text || "{}";
+                config: {
+                  systemInstruction,
+                  responseMimeType: "application/json"
+                }
+              });
+            } catch (errKey2Flash) {
+              console.warn("[Gemini API] Falló fallback con gemini-3.5-flash en Key 2. Probando gemini-flash-latest...");
+              fallbackResponse2 = await ai2.models.generateContent({
+                model: "gemini-flash-latest",
+                contents: `Analiza la siguiente conversación/transcripción de llamada:
+"${transcript}"
+
+Debes devolver obligatoriamente un objeto JSON plano que cumpla exactamente con esta estructura y con todos los detalles redactados en INGLÉS:
+{
+  "clientName": "Contact name or 'Unknown'",
+  "companyName": "Company name or 'Unknown'",
+  "role": "Role or 'Unknown'",
+  "country": "Country or 'Unknown'",
+  "contactInfo": "Email/phone or 'Unknown'",
+  "kycChecklist": {
+    "identityEstablished": true/false,
+    "ownershipVerified": true/false,
+    "businessActivityDefined": true/false,
+    "riskAssessmentCompleted": true/false
+  },
+  "commercialDiscussionsDetected": true/false,
+  "commercialDetailsFound": "details of commercial talks in English or 'None'",
+  "isCompliant": true/false,
+  "breachSeverity": "NONE" or "CRITICAL",
+  "summaryOfCall": "brief audit summary in English",
+  "nextStepsRequired": ["action 1 in English", "action 2 in English"],
+  "taxId": "extracted VAT/CIF/NIF or 'None'",
+  "taxIdResearch": "brief research analysis of tax number in English"
+}`,
+                config: {
+                  systemInstruction,
+                  responseMimeType: "application/json"
+                }
+              });
+            }
+            const responseText = fallbackResponse2.text || "{}";
             result = JSON.parse(responseText.trim());
             console.log("[Gemini API] ¡Análisis de respaldo exitoso con Cliente Secundario!");
           } catch (fallbackErr2: any) {
