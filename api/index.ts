@@ -141,6 +141,21 @@ app.post("/api/test-key", async (req, res) => {
       } catch (err: any) {
         console.warn(`[Diagnostic] Falló prueba con ${modelName}:`, err.message || err);
         rawError = err.message || JSON.stringify(err);
+        const errMsg = err.message || "";
+        if (
+          errMsg.includes("API_KEY_INVALID") || 
+          errMsg.includes("API key not valid") || 
+          errMsg.includes("quota") || 
+          errMsg.includes("quota exceeded") || 
+          errMsg.includes("429") || 
+          errMsg.includes("RESOURCE_EXHAUSTED") || 
+          errMsg.includes("PERMISSION_DENIED") ||
+          errMsg.includes("block") ||
+          errMsg.includes("permission")
+        ) {
+          console.log("[Diagnostic] Error crítico de clave o cuota. Deteniendo reintentos.");
+          break;
+        }
       }
     }
 
@@ -272,12 +287,55 @@ Tu rol:
       } catch (err: any) {
         console.warn(`[Gemini API] Fallo con el modelo ${modelName}:`, err.message || err);
         lastError = err;
+        
+        const errMsg = err.message || "";
+        // If the error is related to API key, authorization, or quota, fail fast to avoid 504 timeouts.
+        if (
+          errMsg.includes("API_KEY_INVALID") || 
+          errMsg.includes("API key not valid") || 
+          errMsg.includes("quota") || 
+          errMsg.includes("quota exceeded") || 
+          errMsg.includes("429") || 
+          errMsg.includes("RESOURCE_EXHAUSTED") || 
+          errMsg.includes("PERMISSION_DENIED") ||
+          errMsg.includes("block") ||
+          errMsg.includes("permission")
+        ) {
+          console.log("[Gemini API] Error crítico de clave o cuota. Deteniendo reintentos y lanzando error inmediato.");
+          break;
+        }
         // Continúa al siguiente modelo de la lista
       }
     }
 
     // Si todos los intentos estructurados fallaron, probamos un fallback de texto libre a JSON
     if (!result) {
+      const lastErrMsg = lastError?.message || "";
+      const isKeyOrQuotaError = lastErrMsg && (
+        lastErrMsg.includes("API_KEY_INVALID") || 
+        lastErrMsg.includes("API key not valid") || 
+        lastErrMsg.includes("quota") || 
+        lastErrMsg.includes("quota exceeded") || 
+        lastErrMsg.includes("429") || 
+        lastErrMsg.includes("RESOURCE_EXHAUSTED") || 
+        lastErrMsg.includes("PERMISSION_DENIED") ||
+        lastErrMsg.includes("block") ||
+        lastErrMsg.includes("permission")
+      );
+
+      if (isKeyOrQuotaError) {
+        console.log("[Gemini API] Bypassing fallback due to critical API key/quota error.");
+        let friendlyError = "La API Key de Gemini ingresada NO es válida. Por favor, asegúrate de haberla configurado correctamente.";
+        if (lastErrMsg.includes("quota") || lastErrMsg.includes("quota exceeded") || lastErrMsg.includes("429") || lastErrMsg.includes("RESOURCE_EXHAUSTED")) {
+          friendlyError = "Límite de cuota excedido para esta API Key de Gemini. Si es una clave gratuita, tiene un límite estricto de solicitudes por minuto. Por favor, espera un minuto o prueba con otra clave.";
+        } else if (lastErrMsg.includes("block") || lastErrMsg.includes("permission") || lastErrMsg.includes("PERMISSION_DENIED")) {
+          friendlyError = "Acceso denegado. Es posible que tu API Key no tenga los permisos necesarios o esté restringida para ciertos modelos o regiones.";
+        } else {
+          friendlyError = `Error de la API de Gemini: ${lastErrMsg}`;
+        }
+        throw new Error(friendlyError);
+      }
+
       try {
         console.log("[Gemini API] Intentando análisis de respaldo sin responseSchema estricto usando gemini-flash-latest...");
         const fallbackResponse = await ai.models.generateContent({
