@@ -600,33 +600,41 @@ export default function App() {
     const sanitizeVal = (val: any, fallback: string) => {
       if (val === undefined || val === null) return fallback;
       const s = String(val).trim();
-      if (!s || s.toLowerCase() === 'none' || s.toLowerCase() === 'unknown' || s.toLowerCase() === 'n/a') {
+      if (
+        !s || 
+        s.toLowerCase() === 'none' || 
+        s.toLowerCase() === 'unknown' || 
+        s.toLowerCase() === 'n/a' ||
+        s === '(no me lo ha contestado)' ||
+        s.toLowerCase() === '(no me lo ha contestado)'
+      ) {
         return fallback;
       }
       return s;
     };
 
+    const fallbackText = '(Not answered / Not provided)';
     const q = {
-      q1_name: sanitizeVal(rawQ.q1_name, currentResult.clientName || '(no me lo ha contestado)'),
-      q2_source: sanitizeVal(rawQ.q2_source, '(no me lo ha contestado)'),
-      q3_country: sanitizeVal(rawQ.q3_country, currentResult.country || '(no me lo ha contestado)'),
-      q4_address_phone: sanitizeVal(rawQ.q4_address_phone, currentResult.contactInfo || '(no me lo ha contestado)'),
-      q5_company_name: sanitizeVal(rawQ.q5_company_name, currentResult.companyName || '(no me lo ha contestado)'),
-      q6_activity: sanitizeVal(rawQ.q6_activity, currentResult.role || '(no me lo ha contestado)'),
-      q7_statutory_db: sanitizeVal(rawQ.q7_statutory_db, currentResult.taxId && currentResult.taxId !== 'None' ? `${currentResult.taxId} - ${currentResult.taxIdResearch || ''}` : '(no me lo ha contestado)'),
-      q8_formation_date: sanitizeVal(rawQ.q8_formation_date, '(no me lo ha contestado)'),
-      q9_years_trading: sanitizeVal(rawQ.q9_years_trading, '(no me lo ha contestado)'),
-      q10_shipping: sanitizeVal(rawQ.q10_shipping, '(no me lo ha contestado)'),
-      q11_channel: sanitizeVal(rawQ.q11_channel, '(no me lo ha contestado)'),
-      q12_goods_in: sanitizeVal(rawQ.q12_goods_in, '(no me lo ha contestado)'),
-      q13_stock_shipping: sanitizeVal(rawQ.q13_stock_shipping, '(no me lo ha contestado)'),
-      q14_average_rrp: sanitizeVal(rawQ.q14_average_rrp, '(no me lo ha contestado)'),
-      q15_start_date: sanitizeVal(rawQ.q15_start_date, '(no me lo ha contestado)'),
-      q16_kyc: sanitizeVal(rawQ.q16_kyc, '(no me lo ha contestado)'),
-      q17_capital: sanitizeVal(rawQ.q17_capital, '(no me lo ha contestado)'),
-      q18_europe: sanitizeVal(rawQ.q18_europe, '(no me lo ha contestado)'),
-      q19_pricing: sanitizeVal(rawQ.q19_pricing, '(no me lo ha contestado)'),
-      q20_other: sanitizeVal(rawQ.q20_other, '(no me lo ha contestado)')
+      q1_name: sanitizeVal(rawQ.q1_name, currentResult.clientName || fallbackText),
+      q2_source: sanitizeVal(rawQ.q2_source, fallbackText),
+      q3_country: sanitizeVal(rawQ.q3_country, currentResult.country || fallbackText),
+      q4_address_phone: sanitizeVal(rawQ.q4_address_phone, currentResult.contactInfo || fallbackText),
+      q5_company_name: sanitizeVal(rawQ.q5_company_name, currentResult.companyName || fallbackText),
+      q6_activity: sanitizeVal(rawQ.q6_activity, currentResult.role || fallbackText),
+      q7_statutory_db: sanitizeVal(rawQ.q7_statutory_db, currentResult.taxId && currentResult.taxId !== 'None' ? `${currentResult.taxId} - ${currentResult.taxIdResearch || ''}` : fallbackText),
+      q8_formation_date: sanitizeVal(rawQ.q8_formation_date, fallbackText),
+      q9_years_trading: sanitizeVal(rawQ.q9_years_trading, fallbackText),
+      q10_shipping: sanitizeVal(rawQ.q10_shipping, fallbackText),
+      q11_channel: sanitizeVal(rawQ.q11_channel, fallbackText),
+      q12_goods_in: sanitizeVal(rawQ.q12_goods_in, fallbackText),
+      q13_stock_shipping: sanitizeVal(rawQ.q13_stock_shipping, fallbackText),
+      q14_average_rrp: sanitizeVal(rawQ.q14_average_rrp, fallbackText),
+      q15_start_date: sanitizeVal(rawQ.q15_start_date, fallbackText),
+      q16_kyc: sanitizeVal(rawQ.q16_kyc, fallbackText),
+      q17_capital: sanitizeVal(rawQ.q17_capital, fallbackText),
+      q18_europe: sanitizeVal(rawQ.q18_europe, fallbackText),
+      q19_pricing: sanitizeVal(rawQ.q19_pricing, fallbackText),
+      q20_other: sanitizeVal(rawQ.q20_other, fallbackText)
     };
 
     const questionnaireFields = [
@@ -659,8 +667,8 @@ export default function App() {
             </h3>
             <div style="display: grid; grid-template-columns: 1fr; gap: 16px;">
                 ${questionnaireFields.map(field => {
-                  const val = (q as any)[field.key] || '(no me lo ha contestado)';
-                  const isUnanswered = val.includes('(no me lo ha contestado)');
+                  const val = (q as any)[field.key] || fallbackText;
+                  const isUnanswered = val === fallbackText || val.includes('(no me lo ha contestado)');
                   const answerBg = isUnanswered ? '#fef3c7' : '#f8fafc';
                   const answerColor = isUnanswered ? '#b45309' : '#1e293b';
                   const answerStyle = isUnanswered ? 'font-style: italic;' : '';

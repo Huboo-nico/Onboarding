@@ -103,155 +103,288 @@ export async function createKYCDocument(
   const sanitizeVal = (val: any, fallback: string) => {
     if (val === undefined || val === null) return fallback;
     const s = String(val).trim();
-    if (!s || s.toLowerCase() === 'none' || s.toLowerCase() === 'unknown' || s.toLowerCase() === 'n/a') {
+    if (
+      !s || 
+      s.toLowerCase() === 'none' || 
+      s.toLowerCase() === 'unknown' || 
+      s.toLowerCase() === 'n/a' || 
+      s === '(no me lo ha contestado)' ||
+      s.toLowerCase() === '(no me lo ha contestado)'
+    ) {
       return fallback;
     }
     return s;
   };
 
+  const fallbackText = '(Not answered / Not provided)';
   const q = {
-    q1_name: sanitizeVal(rawQ.q1_name, clientName || '(no me lo ha contestado)'),
-    q2_source: sanitizeVal(rawQ.q2_source, '(no me lo ha contestado)'),
-    q3_country: sanitizeVal(rawQ.q3_country, data.country || '(no me lo ha contestado)'),
-    q4_address_phone: sanitizeVal(rawQ.q4_address_phone, data.contactInfo || '(no me lo ha contestado)'),
-    q5_company_name: sanitizeVal(rawQ.q5_company_name, companyName || '(no me lo ha contestado)'),
-    q6_activity: sanitizeVal(rawQ.q6_activity, data.role || '(no me lo ha contestado)'),
-    q7_statutory_db: sanitizeVal(rawQ.q7_statutory_db, data.taxId && data.taxId !== 'None' ? `${data.taxId} - ${data.taxIdResearch || ''}` : '(no me lo ha contestado)'),
-    q8_formation_date: sanitizeVal(rawQ.q8_formation_date, '(no me lo ha contestado)'),
-    q9_years_trading: sanitizeVal(rawQ.q9_years_trading, '(no me lo ha contestado)'),
-    q10_shipping: sanitizeVal(rawQ.q10_shipping, '(no me lo ha contestado)'),
-    q11_channel: sanitizeVal(rawQ.q11_channel, '(no me lo ha contestado)'),
-    q12_goods_in: sanitizeVal(rawQ.q12_goods_in, '(no me lo ha contestado)'),
-    q13_stock_shipping: sanitizeVal(rawQ.q13_stock_shipping, '(no me lo ha contestado)'),
-    q14_average_rrp: sanitizeVal(rawQ.q14_average_rrp, '(no me lo ha contestado)'),
-    q15_start_date: sanitizeVal(rawQ.q15_start_date, '(no me lo ha contestado)'),
-    q16_kyc: sanitizeVal(rawQ.q16_kyc, '(no me lo ha contestado)'),
-    q17_capital: sanitizeVal(rawQ.q17_capital, '(no me lo ha contestado)'),
-    q18_europe: sanitizeVal(rawQ.q18_europe, '(no me lo ha contestado)'),
-    q19_pricing: sanitizeVal(rawQ.q19_pricing, '(no me lo ha contestado)'),
-    q20_other: sanitizeVal(rawQ.q20_other, '(no me lo ha contestado)')
+    q1_name: sanitizeVal(rawQ.q1_name, clientName || fallbackText),
+    q2_source: sanitizeVal(rawQ.q2_source, fallbackText),
+    q3_country: sanitizeVal(rawQ.q3_country, data.country || fallbackText),
+    q4_address_phone: sanitizeVal(rawQ.q4_address_phone, data.contactInfo || fallbackText),
+    q5_company_name: sanitizeVal(rawQ.q5_company_name, companyName || fallbackText),
+    q6_activity: sanitizeVal(rawQ.q6_activity, data.role || fallbackText),
+    q7_statutory_db: sanitizeVal(rawQ.q7_statutory_db, data.taxId && data.taxId !== 'None' ? `${data.taxId} - ${data.taxIdResearch || ''}` : fallbackText),
+    q8_formation_date: sanitizeVal(rawQ.q8_formation_date, fallbackText),
+    q9_years_trading: sanitizeVal(rawQ.q9_years_trading, fallbackText),
+    q10_shipping: sanitizeVal(rawQ.q10_shipping, fallbackText),
+    q11_channel: sanitizeVal(rawQ.q11_channel, fallbackText),
+    q12_goods_in: sanitizeVal(rawQ.q12_goods_in, fallbackText),
+    q13_stock_shipping: sanitizeVal(rawQ.q13_stock_shipping, fallbackText),
+    q14_average_rrp: sanitizeVal(rawQ.q14_average_rrp, fallbackText),
+    q15_start_date: sanitizeVal(rawQ.q15_start_date, fallbackText),
+    q16_kyc: sanitizeVal(rawQ.q16_kyc, fallbackText),
+    q17_capital: sanitizeVal(rawQ.q17_capital, fallbackText),
+    q18_europe: sanitizeVal(rawQ.q18_europe, fallbackText),
+    q19_pricing: sanitizeVal(rawQ.q19_pricing, fallbackText),
+    q20_other: sanitizeVal(rawQ.q20_other, fallbackText)
   };
 
-  const bodyText = `Huboo – Client Onboarding
-Onboarding Questionnaire
-Client: ${companyName || '________________________'}     BDM: ____________________     Date: 7 July 2026
+  const htmlBodyText = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; color: #1e293b; line-height: 1.6; margin: 30px; }
+    .header-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
+    .header-title { font-size: 24px; font-weight: bold; color: #0f172a; margin: 0 0 5px 0; }
+    .header-subtitle { font-size: 12px; font-family: monospace; color: #dc2626; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; }
+    .section-title { font-size: 16px; font-weight: bold; color: #1e3a8a; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; margin-top: 30px; margin-bottom: 15px; text-transform: uppercase; }
+    
+    .status-container { padding: 15px; border-radius: 8px; margin-bottom: 25px; border: 1px solid #cbd5e1; }
+    .status-compliant { background-color: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+    .status-breach { background-color: #fef2f2; border-color: #fca5a5; color: #991b1b; }
+    
+    .info-grid { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
+    .info-grid th { background-color: #f8fafc; text-align: left; font-weight: bold; color: #475569; width: 30%; padding: 10px; border: 1px solid #e2e8f0; font-size: 12px; }
+    .info-grid td { padding: 10px; border: 1px solid #e2e8f0; font-size: 13px; }
+    
+    .checklist-item { padding: 8px 12px; border-radius: 4px; margin-bottom: 8px; border: 1px solid #e2e8f0; font-size: 12px; }
+    .checklist-verified { background-color: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+    .checklist-pending { background-color: #f8fafc; border-color: #cbd5e1; color: #64748b; }
+    
+    .question-card { border: 1px solid #e2e8f0; border-radius: 6px; padding: 15px; margin-bottom: 15px; background-color: #f8fafc; }
+    .question-header { font-size: 11px; font-weight: bold; color: #64748b; font-family: monospace; text-transform: uppercase; margin-bottom: 4px; }
+    .question-label { font-size: 13px; font-weight: bold; color: #334155; margin-bottom: 8px; }
+    
+    .answer-box { padding: 10px; border-radius: 4px; font-size: 13px; border-left: 3px solid #3b82f6; background-color: #ffffff; color: #1e293b; }
+    .answer-unanswered { border-left-color: #f59e0b; background-color: #fffbeb; color: #b45309; font-style: italic; }
+    
+    .footer { text-align: center; margin-top: 50px; font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 20px; }
+  </style>
+</head>
+<body>
+  <table class="header-table">
+    <tr>
+      <td>
+        <div class="header-title">HUBOO – CLIENT ONBOARDING QUESTIONNAIRE</div>
+        <div class="header-subtitle">ZERO-TOLERANCE CORPORATE SECURITY PROTOCOL</div>
+      </td>
+    </tr>
+  </table>
 
-1.  Name  (primary contact / principal)
-${q.q1_name}
+  <div class="status-container ${data.isCompliant ? 'status-compliant' : 'status-breach'}">
+    <strong>COMPLIANCE STATUS: ${data.isCompliant ? 'COMPLIANT (APPROVED)' : 'BREACH DETECTED (RESTRICTED)'}</strong>
+    <p style="margin: 5px 0 0 0; font-size: 12px; font-weight: normal;">
+      ${data.isCompliant 
+        ? 'This communication exchange fully respects the Corporate Zero Tolerance protocol. No unauthorized commercial discussions were detected prior to onboarding requirements.' 
+        : 'CRITICAL SECURITY BREACH: Substantive commercial topics (pricing, quotes, contracts) were discussed prior to establishing complete basic KYC validation.'}
+    </p>
+  </div>
 
+  <div class="section-title">1. Counterparty General Information</div>
+  <table class="info-grid">
+    <tr>
+      <th>Legal & Trading Name</th>
+      <td><strong>${companyName}</strong></td>
+    </tr>
+    <tr>
+      <th>Primary Contact / Representative</th>
+      <td>${clientName}</td>
+    </tr>
+    <tr>
+      <th>Role / Title</th>
+      <td>${data.role || 'Not specified'}</td>
+    </tr>
+    <tr>
+      <th>Jurisdiction / Residence</th>
+      <td>${data.country || 'Not specified'}</td>
+    </tr>
+    <tr>
+      <th>Contact Information</th>
+      <td>${data.contactInfo || 'Not specified'}</td>
+    </tr>
+  </table>
 
-2.  Source  (how the client came to us; referrer)
-${q.q2_source}
+  <div class="section-title">2. Mandatory Onboarding Checklist</div>
+  <div class="checklist-item ${data.kycChecklist?.identityEstablished ? 'checklist-verified' : 'checklist-pending'}">
+    [${data.kycChecklist?.identityEstablished ? 'X' : ' '}] Legal Identity Established and Registered — <strong>${data.kycChecklist?.identityEstablished ? 'VERIFIED' : 'PENDING'}</strong>
+  </div>
+  <div class="checklist-item ${data.kycChecklist?.ownershipVerified ? 'checklist-verified' : 'checklist-pending'}">
+    [${data.kycChecklist?.ownershipVerified ? 'X' : ' '}] Ultimate Beneficial Owners (UBO) Verification Completed — <strong>${data.kycChecklist?.ownershipVerified ? 'VERIFIED' : 'PENDING'}</strong>
+  </div>
+  <div class="checklist-item ${data.kycChecklist?.businessActivityDefined ? 'checklist-verified' : 'checklist-pending'}">
+    [${data.kycChecklist?.businessActivityDefined ? 'X' : ' '}] Business Purpose and Activity Formally Defined — <strong>${data.kycChecklist?.businessActivityDefined ? 'VERIFIED' : 'PENDING'}</strong>
+  </div>
+  <div class="checklist-item ${data.kycChecklist?.riskAssessmentCompleted ? 'checklist-verified' : 'checklist-pending'}">
+    [${data.kycChecklist?.riskAssessmentCompleted ? 'X' : ' '}] Risk Profile Assessment Completed — <strong>${data.kycChecklist?.riskAssessmentCompleted ? 'VERIFIED' : 'PENDING'}</strong>
+  </div>
 
+  <div class="section-title">3. Huboo Onboarding Questionnaire (20 Questions)</div>
+  
+  <div class="question-card">
+    <div class="question-header">Question 1</div>
+    <div class="question-label">Name (primary contact / principal)</div>
+    <div class="answer-box ${q.q1_name === fallbackText ? 'answer-unanswered' : ''}">${q.q1_name}</div>
+  </div>
 
-3.  Country / residence
-${q.q3_country}
+  <div class="question-card">
+    <div class="question-header">Question 2</div>
+    <div class="question-label">Source (how the client came to us; referrer)</div>
+    <div class="answer-box ${q.q2_source === fallbackText ? 'answer-unanswered' : ''}">${q.q2_source}</div>
+  </div>
 
+  <div class="question-card">
+    <div class="question-header">Question 3</div>
+    <div class="question-label">Country / residence</div>
+    <div class="answer-box ${q.q3_country === fallbackText ? 'answer-unanswered' : ''}">${q.q3_country}</div>
+  </div>
 
-4.  Address and telephone number
-${q.q4_address_phone}
+  <div class="question-card">
+    <div class="question-header">Question 4</div>
+    <div class="question-label">Address and telephone number</div>
+    <div class="answer-box ${q.q4_address_phone === fallbackText ? 'answer-unanswered' : ''}">${q.q4_address_phone}</div>
+  </div>
 
+  <div class="question-card">
+    <div class="question-header">Question 5</div>
+    <div class="question-label">Name of company (legal and trading name)</div>
+    <div class="answer-box ${q.q5_company_name === fallbackText ? 'answer-unanswered' : ''}">${q.q5_company_name}</div>
+  </div>
 
-5.  Name of company  (legal and trading name)
-${q.q5_company_name}
+  <div class="question-card">
+    <div class="question-header">Question 6</div>
+    <div class="question-label">Activity (what the business does; product categories)</div>
+    <div class="answer-box ${q.q6_activity === fallbackText ? 'answer-unanswered' : ''}">${q.q6_activity}</div>
+  </div>
 
+  <div class="question-card">
+    <div class="question-header">Question 7</div>
+    <div class="question-label">Companies House / statutory databases (registration number; checks completed)</div>
+    <div class="answer-box ${q.q7_statutory_db === fallbackText ? 'answer-unanswered' : ''}">${q.q7_statutory_db}</div>
+  </div>
 
-6.  Activity  (what the business does; product categories)
-${q.q6_activity}
+  <div class="question-card">
+    <div class="question-header">Question 8</div>
+    <div class="question-label">Date of formation</div>
+    <div class="answer-box ${q.q8_formation_date === fallbackText ? 'answer-unanswered' : ''}">${q.q8_formation_date}</div>
+  </div>
 
+  <div class="question-card">
+    <div class="question-header">Question 9</div>
+    <div class="question-label">Years trading</div>
+    <div class="answer-box ${q.q9_years_trading === fallbackText ? 'answer-unanswered' : ''}">${q.q9_years_trading}</div>
+  </div>
 
-7.  Companies House / statutory databases  (registration number; checks completed)
-${q.q7_statutory_db}
+  <div class="question-card">
+    <div class="question-header">Question 10</div>
+    <div class="question-label">Shipping (volumes; markets; carriers)</div>
+    <div class="answer-box ${q.q10_shipping === fallbackText ? 'answer-unanswered' : ''}">${q.q10_shipping}</div>
+  </div>
 
+  <div class="question-card">
+    <div class="question-header">Question 11</div>
+    <div class="question-label">Channel (D2C / B2B / marketplace)</div>
+    <div class="answer-box ${q.q11_channel === fallbackText ? 'answer-unanswered' : ''}">${q.q11_channel}</div>
+  </div>
 
-8.  Date of formation
-${q.q8_formation_date}
+  <div class="question-card">
+    <div class="question-header">Question 12</div>
+    <div class="question-label">Goods in / source (where stock originates; inbound)</div>
+    <div class="answer-box ${q.q12_goods_in === fallbackText ? 'answer-unanswered' : ''}">${q.q12_goods_in}</div>
+  </div>
 
+  <div class="question-card">
+    <div class="question-header">Question 13</div>
+    <div class="question-label">Stock & shipping (SKUs; storage; fulfilment profile)</div>
+    <div class="answer-box ${q.q13_stock_shipping === fallbackText ? 'answer-unanswered' : ''}">${q.q13_stock_shipping}</div>
+  </div>
 
-9.  Years trading
-${q.q9_years_trading}
+  <div class="question-card">
+    <div class="question-header">Question 14</div>
+    <div class="question-label">Average RRP (and average order value / weight)</div>
+    <div class="answer-box ${q.q14_average_rrp === fallbackText ? 'answer-unanswered' : ''}">${q.q14_average_rrp}</div>
+  </div>
 
+  <div class="question-card">
+    <div class="question-header">Question 15</div>
+    <div class="question-label">Start date (target go-live)</div>
+    <div class="answer-box ${q.q15_start_date === fallbackText ? 'answer-unanswered' : ''}">${q.q15_start_date}</div>
+  </div>
 
-10.  Shipping  (volumes; markets; carriers)
-${q.q10_shipping}
+  <div class="question-card">
+    <div class="question-header">Question 16</div>
+    <div class="question-label">KYC (ID and address for UBOs and directors; certified docs; screening)</div>
+    <div class="answer-box ${q.q16_kyc === fallbackText ? 'answer-unanswered' : ''}">${q.q16_kyc}</div>
+  </div>
 
+  <div class="question-card">
+    <div class="question-header">Question 17</div>
+    <div class="question-label">Capital (funding position; investors; source of funds)</div>
+    <div class="answer-box ${q.q17_capital === fallbackText ? 'answer-unanswered' : ''}">${q.q17_capital}</div>
+  </div>
 
-11.  Channel  (D2C / B2B / marketplace)
-${q.q11_channel}
+  <div class="question-card">
+    <div class="question-header">Question 18</div>
+    <div class="question-label">Europe (EU operations; VAT registrations; markets)</div>
+    <div class="answer-box ${q.q18_europe === fallbackText ? 'answer-unanswered' : ''}">${q.q18_europe}</div>
+  </div>
 
+  <div class="question-card">
+    <div class="question-header">Question 19</div>
+    <div class="question-label">Pricing (agreed rate card; B2B charges)</div>
+    <div class="answer-box ${q.q19_pricing === fallbackText ? 'answer-unanswered' : ''}">${q.q19_pricing}</div>
+  </div>
 
-12.  Goods in / source  (where stock originates; inbound)
-${q.q12_goods_in}
+  <div class="question-card">
+    <div class="question-header">Question 20</div>
+    <div class="question-label">Other (notes; special requirements; risks)</div>
+    <div class="answer-box ${q.q20_other === fallbackText ? 'answer-unanswered' : ''}">${q.q20_other}</div>
+  </div>
 
+  <div class="section-title">4. Commercial Discussions Audit</div>
+  <table class="info-grid">
+    <tr>
+      <th style="width: 40%">Commercial discussions detected?</th>
+      <td><strong>${data.commercialDiscussionsDetected ? 'YES (VIOLATION)' : 'NO (COMPLIANT)'}</strong></td>
+    </tr>
+    <tr>
+      <th>Severity Level</th>
+      <td><span style="color: ${data.breachSeverity === 'CRITICAL' ? '#dc2626' : '#166534'}; font-weight: bold;">${severityText}</span></td>
+    </tr>
+  </table>
+  
+  <p style="font-size: 13px; font-weight: bold; color: #475569; margin-bottom: 5px;">Details of Commercial Topics Discussed:</p>
+  <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 6px; font-size: 13px; font-style: italic; color: #1e293b;">
+    ${data.commercialDetailsFound || 'None.'}
+  </div>
 
-13.  Stock & shipping  (SKUs; storage; fulfilment profile)
-${q.q13_stock_shipping}
+  <div class="section-title">5. Required Actions & Next Steps</div>
+  <ul style="padding-left: 20px; font-size: 13px; color: #334155;">
+    ${(data.nextStepsRequired || []).map(step => `<li style="margin-bottom: 6px; font-weight: bold;">${step}</li>`).join('')}
+  </ul>
 
+  <div class="section-title">6. Conversation Summary</div>
+  <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 6px; font-size: 13px; color: #334155;">
+    ${data.summaryOfCall || 'No transcript available.'}
+  </div>
 
-14.  Average RRP  (and average order value / weight)
-${q.q14_average_rrp}
-
-
-15.  Start date  (target go-live)
-${q.q15_start_date}
-
-
-16.  KYC  (ID and address for UBOs and directors; certified docs; screening)
-${q.q16_kyc}
-
-
-17.  Capital  (funding position; investors; source of funds)
-${q.q17_capital}
-
-
-18.  Europe  (EU operations; VAT registrations; markets)
-${q.q18_europe}
-
-
-19.  Pricing  (agreed rate card; B2B charges)
-${q.q19_pricing}
-
-
-20.  Other  (notes; special requirements; risks)
-${q.q20_other}
-
-
-Sign-off
-BDM: ______________    Compliance (KYC/UBO complete): ______________    EC / Chair approval (new counterparty): ______________
-Internal. Complete in full before onboarding. Ownership / UBO and KYC fields are mandatory.
-
-=================================================================================
-KYC COMPLIANCE AUDIT REPORT (INTERNAL COMPLIANCE MONITORING)
-=================================================================================
-• Contact/Representative: ${clientName}
-• Company / Entity: ${companyName}
-• Title / Role: ${data.role || 'Not specified'}
-• Country/Region: ${data.country || 'Not specified'}
-• Contact Information: ${data.contactInfo || 'Not specified'}
-
-COMPLIANCE STATUS (ZERO TOLERANCE POLICY)
-• Complies with onboarding protocol?: ${isCompliantText}
-• Breach Severity Level: ${severityText}
-• Pre-onboarding commercial discussions detected?: ${data.commercialDiscussionsDetected ? 'YES' : 'NO'}
-
-DETAILS OF COMMERCIAL TOPICS DISCUSSED
-${data.commercialDetailsFound || 'None'}
-
-KYC CHECKLIST STATUS (REQUIRED BEFORE ENGAGEMENT)
-[${data.kycChecklist?.identityEstablished ? 'X' : ' '}] Legal Identity Established and Registered
-[${data.kycChecklist?.ownershipVerified ? 'X' : ' '}] Ultimate Beneficial Owners (UBO) Verification Completed
-[${data.kycChecklist?.businessActivityDefined ? 'X' : ' '}] Business Purpose and Activity Formally Defined
-[${data.kycChecklist?.riskAssessmentCompleted ? 'X' : ' '}] Risk Profile Assessment Completed
-
-REQUIRED ACTIONS AND NEXT STEPS
-${(data.nextStepsRequired || []).map(step => `• ${step}`).join('\n')}
-
-CONVERSATION SUMMARY
-• ${data.summaryOfCall || 'No transcript available'}
-
----------------------------------------------------------------------------------
-COMPLIANCE NOTICE: In accordance with the Corporate Zero Tolerance Policy, no commercial discussions or transactions may proceed or resume with this counterparty until all items in the KYC Checklist are verified and marked as [X].
-`;
+  <div class="footer">
+    This document was automatically compiled and uploaded by the Huboo KYC Compliance Automator.<br>
+    Confidentiality Notice: INTERNAL COMPLIANCE RECORD ONLY. DO NOT DISTRIBUTE EXTERNALLY.
+  </div>
+</body>
+</html>`;
   
   // 4. Create the Google Doc inside the company folder (or root as fallback) with content via multipart upload
   const docTitle = `KYC Report - ${companyName} (${clientName})`;
@@ -262,22 +395,18 @@ COMPLIANCE NOTICE: In accordance with the Corporate Zero Tolerance Policy, no co
     parents: folderId ? [folderId] : [],
   };
 
-  const body =
-    `--${boundary}\r\n` +
-    'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-    JSON.stringify(metadata) + '\r\n' +
-    `--${boundary}\r\n` +
-    'Content-Type: text/plain; charset=UTF-8\r\n\r\n' +
-    bodyText + '\r\n' +
-    `--${boundary}--`;
+  const part1 = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`;
+  const part2 = `--${boundary}\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n${htmlBodyText}\r\n`;
+  const part3 = `--${boundary}--`;
+
+  const multipartBlob = new Blob([part1, part2, part3], { type: `multipart/related; boundary=${boundary}` });
 
   const createDocRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
-      'Content-Type': `multipart/related; boundary=${boundary}`,
     },
-    body: body,
+    body: multipartBlob,
   });
 
   if (!createDocRes.ok) {
