@@ -264,8 +264,29 @@ Your role:
    - Summarize the potential validity of this identifier format, indicate the country of origin, and include brief corporate/registry research details if applicable.
 7. MANDATORY REQUIREMENT: All audit findings, summaries, commercial descriptions, next steps, and tax research (fields: "commercialDetailsFound", "summaryOfCall", "nextStepsRequired", and "taxIdResearch") MUST be fully written in professional, grammatically perfect English for international corporate reporting, without exceptions.
 8. HUBOO ONBOARDING QUESTIONNAIRE EXTRACTION: You must extract and compile answers to the 20 questions for the Huboo Onboarding Questionnaire in the "questionnaire" field.
-   CRITICAL CONSTRAINT: If there is no answer or mention of a question's topic in the transcript, you MUST literally return '(no me lo ha contestado)' for that question. Do NOT make up any details or use generic placeholders like 'Unknown', 'N/A', or 'None'. The text MUST be exactly '(no me lo ha contestado)'.
-   Ensure question 7 (q7_statutory_db) incorporates any Spanish CIF/NIF/VAT tax registration research details (like what type of company it indicates, the registration number format validation, checks completed) if found, or states '(no me lo ha contestado)' if no tax id or registration info was mentioned.`;
+   - PREFER SPANISH: Since the input transcript/call is typically in Spanish, extract and write the answers to the 20 questions in SPANISH to preserve high-fidelity, natural wording, and native details (e.g., "Joyas", "España", physical Spanish addresses) as requested.
+   - FLEXIBLE INTELLIGENT MATCHING: Be highly intelligent and proactive when matching answers. If a piece of information is mentioned anywhere in the conversation, or can be directly and safely inferred, map it to the corresponding question. Do not return '(no me lo ha contestado)' if there are context clues, names, details, or partial answers available in the transcript.
+     * q1_name: Name of the primary contact person / spokesperson.
+     * q2_source: Channel of origin (how they reached us, recommendation, website, email, etc.).
+     * q3_country: Company headquarters or client country (e.g., España).
+     * q4_address_phone: Address and phone/contact info if mentioned.
+     * q5_company_name: Name of company (legal/trading name).
+     * q6_activity: Business activity, product types (e.g., joyas, joyería de alto valor, unboxing premium, seguridad).
+     * q7_statutory_db: Any tax ID (CIF/NIF/VAT) or Companies House registration. Include complete validation research if present (such as CIF letter prefix meaning, Seville province code, check digit validation).
+     * q8_formation_date: Date the company was established or incorporated.
+     * q9_years_trading: Number of years/months they have been operating/trading.
+     * q10_shipping: Shipping volumes, target markets (Spain, EU, international), and preferred carriers.
+     * q11_channel: Selling channels used (Shopify, WooCommerce, D2C, Amazon, etc.).
+     * q12_goods_in: Origin of the stock / inventory supplier location.
+     * q13_stock_shipping: Inventory profile, number of SKUs, storage requirements, premium unboxing needs.
+     * q14_average_rrp: Recommended Retail Price (RRP/PVP) of products, average order value, average weight.
+     * q15_start_date: Target launch date or go-live timeline.
+     * q16_kyc: Mentions of identification documents (DNI, passport, escrituras, beneficial owners verification).
+     * q17_capital: Funding source, capital position, self-funded, investors.
+     * q18_europe: European expansion plans, European VAT numbers, EU operations.
+     * q19_pricing: Pricing discussion details, rate cards, custom quotes, storage costs mentioned.
+     * q20_other: Other notes, special security requirements (like camera recording during premium unboxing), custom requests.
+   - CRITICAL CONSTRAINT: If there is absolutely no mention or clue about a question's topic in the transcript, you MUST literally return '(no me lo ha contestado)' for that question. Do NOT make up any details. The text MUST be exactly '(no me lo ha contestado)'.`;
 
     let lastError: any = null;
     let result: any = null;
@@ -471,7 +492,7 @@ Your role:
             contents: `Analyze the following call transcript:
 "${transcript}"
 
-You must return a flat JSON object adhering exactly to this structure with all fields written in English:
+You must return a flat JSON object adhering exactly to this structure (with 'questionnaire' fields extracted in Spanish to capture natural, high-fidelity business details, and other summary/compliance fields in English):
 {
   "clientName": "Contact name or 'Unknown'",
   "companyName": "Company name or 'Unknown'",
@@ -527,7 +548,7 @@ You must return a flat JSON object adhering exactly to this structure with all f
             contents: `Analyze the following call transcript:
 "${transcript}"
 
-You must return a flat JSON object adhering exactly to this structure with all fields written in English:
+You must return a flat JSON object adhering exactly to this structure (with 'questionnaire' fields extracted in Spanish to capture natural, high-fidelity business details, and other summary/compliance fields in English):
 {
   "clientName": "Contact name or 'Unknown'",
   "companyName": "Company name or 'Unknown'",
@@ -594,7 +615,7 @@ You must return a flat JSON object adhering exactly to this structure with all f
                 contents: `Analyze the following call transcript:
 "${transcript}"
 
-You must return a flat JSON object adhering exactly to this structure with all fields written in English:
+You must return a flat JSON object adhering exactly to this structure (with 'questionnaire' fields extracted in Spanish to capture natural, high-fidelity business details, and other summary/compliance fields in English):
 {
   "clientName": "Contact name or 'Unknown'",
   "companyName": "Company name or 'Unknown'",
@@ -650,7 +671,7 @@ You must return a flat JSON object adhering exactly to this structure with all f
                 contents: `Analyze the following call transcript:
 "${transcript}"
 
-You must return a flat JSON object adhering exactly to this structure with all fields written in English:
+You must return a flat JSON object adhering exactly to this structure (with 'questionnaire' fields extracted in Spanish to capture natural, high-fidelity business details, and other summary/compliance fields in English):
 {
   "clientName": "Contact name or 'Unknown'",
   "companyName": "Company name or 'Unknown'",
