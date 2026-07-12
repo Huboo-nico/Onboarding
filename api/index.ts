@@ -198,30 +198,32 @@ app.post("/api/analyze", async (req, res) => {
     const customKey = req.headers['x-gemini-key'] as string;
     let ai = getGeminiClient(customKey, 1);
 
-    const systemInstruction = `Eres un Oficial de Cumplimiento Normativo (Compliance Officer) corporativo de alta prioridad.
-Tu tarea es analizar detalladamente el texto de una conversación/comunicación entre un miembro del equipo comercial y un tercero (cliente, socio, proveedor, etc.) según la política estricta de CERO TOLERANCIA de la empresa.
+    const systemInstruction = `You are a high-level Corporate Compliance Officer (Compliance Auditor) of the highest authority.
+Your task is to analyze thoroughly the transcript of a conversation or call between a sales representative and a third party (client, partner, supplier, investor, etc.) according to the company's strict ZERO-TOLERANCE KYC policy.
 
---- POLÍTICA DE CERO TOLERANCIA DE LA EMPRESA (KYC) ---
-Con efecto inmediato, no se llevarán a cabo discusiones comerciales con ningún cliente actual o potencial, socio, proveedor, inversionista u otra contraparte hasta que se haya completado el KYC básico.
-Esta es una regla de cero tolerancia y es obligatoria.
-La política es directa:
-1. Completar primero los requisitos básicos de KYC.
-2. Confirmar con quién estamos tratando.
-3. Solo entonces comenzar discusiones comerciales sustanciales, intercambiar información confidencial o negociar términos.
-Hasta que se complete el KYC básico, cualquier comunicación debe limitarse únicamente a obtener la información requerida para completar el proceso de KYC. No se debe realizar ninguna participación comercial sustancial antes de ese momento.
-Si hay alguna duda, se debe escalar antes de comprometerse comercialmente.
---------------------------------------------------
+--- CORPORATE ZERO-TOLERANCE KYC POLICY ---
+With immediate effect, no commercial discussions of any kind may take place with any current or prospective customer, partner, supplier, investor, or other counterparty until basic Know Your Customer (KYC) has been fully completed.
+This is a zero-tolerance rule and is strictly mandatory.
+The policy is simple:
+1. Complete the basic KYC requirements first.
+2. Confirm who we are dealing with.
+3. Only then begin substantial commercial discussions, exchange confidential information, or negotiate terms.
+Until basic KYC is completed, any communication must be strictly limited to obtaining the information required to complete the KYC process. No substantial commercial engagement of any kind may occur before that point.
+If there is any doubt, the representative must escalate before engaging commercially.
+--------------------------------------------
 
-Tu rol:
-1. Extraer los datos de identidad de la contraparte.
-2. Evaluar el checklist básico de KYC (si se ha completado en su totalidad).
-3. Detectar si se ha discutido cualquier asunto comercial sustancial (precios, tarifas, contratos, descuentos, términos, SLA, propuestas formales, planes de implementación con valor comercial o entrega de servicios/productos).
-4. Determinar la COMPATIBILIDAD CON LA POLÍTICA: si se detectó discusión comercial SUSTANCIAL pero el KYC básico NO estaba completado, es una violación de política CRÍTICA (isCompliant: false, breachSeverity: "CRITICAL").
-5. Si no hubo discusiones comerciales, o si el KYC básico se completó antes de cualquier oferta, se considera conforme (isCompliant: true, breachSeverity: "NONE").
-6. Identificar si se menciona algún identificador fiscal como CIF, NIF, o número de VAT (IVA) de la empresa o cliente. Si se encuentra:
-   a. Extráelo tal cual.
-   b. Realiza una breve investigación de validación sintáctica y de formato basada en tu conocimiento corporativo, especificando el país correspondiente (por ejemplo, España para CIF/NIF que comienzan con letras, de la Unión Europea para prefijos de países VAT como ES, FR, DE, etc.), la validez potencial del formato y un breve resumen corporativo de esa entidad si coincide con una compañía real.
-7. OBLIGATORIO: Todas las justificaciones detalladas, resúmenes, descripciones comerciales, próximos pasos e investigaciones de impuestos (campos: "commercialDetailsFound", "summaryOfCall", "nextStepsRequired" y "taxIdResearch") DEBEN estar redactados íntegramente en INGLÉS para presentación corporativa internacional.`;
+Your role:
+1. Extract the counterparty's identity details (name, company name, role, country, contact info).
+2. Assess the basic KYC checklist (whether all requirements were met and completed *before* any commercial discussions took place).
+3. Detect if any substantive commercial topics were discussed (pricing, fees, rates, contracts, discounts, terms, SLAs, formal proposals, implementation plans with commercial value, or delivery of services/products).
+4. Determine POLICY COMPLIANCE: If you detect SUBSTANTIVE commercial discussions but basic KYC was NOT completed or was still pending, this is a CRITICAL policy breach (isCompliant: false, breachSeverity: "CRITICAL"). If no commercial discussions occurred or if basic KYC was fully completed before any commercial talk, the call is compliant (isCompliant: true, breachSeverity: "NONE").
+5. Identify any tax registration numbers mentioned in the conversation, such as a Spanish CIF/NIF, or European VAT registration number.
+6. For the "taxIdResearch" field: If a Tax ID is found, perform a brief format and syntax validation analysis based on corporate standards. For example:
+   - Spanish CIF (Certificado de Identificación Fiscal): It always starts with an organization type letter (A for S.A., B for S.L., C, D, E, F, G, H, J, N, P, Q, R, S, U, V, W), followed by 7 numeric digits and a control character (either a letter or digit). Validate whether the prefix letter aligns with Spanish corporate structures (e.g. B for Sociedad de Responsabilidad Limitada, A for Sociedad Anónima) and whether the format matches.
+   - Spanish NIF/DNI: It comprises 8 digits followed by a single control letter (for individuals) or starts with a letter (for foreigners/companies) followed by 7 digits and a control letter/digit.
+   - EU VAT ID: Verify if the country prefix matches EU ISO standards (e.g., ES for Spain, FR for France, DE for Germany, etc.) and comment on the expected format structure.
+   - Summarize the potential validity of this identifier format, indicate the country of origin, and include brief corporate/registry research details if applicable.
+7. MANDATORY REQUIREMENT: All audit findings, summaries, commercial descriptions, next steps, and tax research (fields: "commercialDetailsFound", "summaryOfCall", "nextStepsRequired", and "taxIdResearch") MUST be fully written in professional, grammatically perfect English for international corporate reporting, without exceptions.`;
 
     let lastError: any = null;
     let result: any = null;
@@ -387,15 +389,15 @@ Tu rol:
       }
 
       try {
-        console.log("[Gemini API] Intentando análisis de respaldo sin responseSchema estricto usando gemini-3.5-flash...");
+        console.log("[Gemini API] Attempting fallback analysis without strict responseSchema using gemini-3.5-flash...");
         let fallbackResponse;
         try {
           fallbackResponse = await ai.models.generateContent({
             model: "gemini-3.5-flash",
-            contents: `Analiza la siguiente conversación/transcripción de llamada:
+            contents: `Analyze the following call transcript:
 "${transcript}"
 
-Debes devolver obligatoriamente un objeto JSON plano que cumpla exactamente con esta estructura y con todos los detalles redactados en INGLÉS:
+You must return a flat JSON object adhering exactly to this structure with all fields written in English:
 {
   "clientName": "Contact name or 'Unknown'",
   "companyName": "Company name or 'Unknown'",
@@ -423,13 +425,13 @@ Debes devolver obligatoriamente un objeto JSON plano que cumpla exactamente con 
             }
           });
         } catch (errKey1Flash) {
-          console.warn("[Gemini API] Falló fallback con gemini-3.5-flash en Key 1. Probando gemini-flash-latest...");
+          console.warn("[Gemini API] Fallback with gemini-3.5-flash failed on Key 1. Trying gemini-flash-latest...");
           fallbackResponse = await ai.models.generateContent({
             model: "gemini-flash-latest",
-            contents: `Analiza la siguiente conversación/transcripción de llamada:
+            contents: `Analyze the following call transcript:
 "${transcript}"
 
-Debes devolver obligatoriamente un objeto JSON plano que cumpla exactamente con esta estructura y con todos los detalles redactados en INGLÉS:
+You must return a flat JSON object adhering exactly to this structure with all fields written in English:
 {
   "clientName": "Contact name or 'Unknown'",
   "companyName": "Company name or 'Unknown'",
@@ -471,10 +473,10 @@ Debes devolver obligatoriamente un objeto JSON plano que cumpla exactamente con 
             try {
               fallbackResponse2 = await ai2.models.generateContent({
                 model: "gemini-3.5-flash",
-                contents: `Analiza la siguiente conversación/transcripción de llamada:
+                contents: `Analyze the following call transcript:
 "${transcript}"
 
-Debes devolver obligatoriamente un objeto JSON plano que cumpla exactamente con esta estructura y con todos los detalles redactados en INGLÉS:
+You must return a flat JSON object adhering exactly to this structure with all fields written in English:
 {
   "clientName": "Contact name or 'Unknown'",
   "companyName": "Company name or 'Unknown'",
@@ -502,13 +504,13 @@ Debes devolver obligatoriamente un objeto JSON plano que cumpla exactamente con 
                 }
               });
             } catch (errKey2Flash) {
-              console.warn("[Gemini API] Falló fallback con gemini-3.5-flash en Key 2. Probando gemini-flash-latest...");
+              console.warn("[Gemini API] Fallback with gemini-3.5-flash failed on Key 2. Trying gemini-flash-latest...");
               fallbackResponse2 = await ai2.models.generateContent({
                 model: "gemini-flash-latest",
-                contents: `Analiza la siguiente conversación/transcripción de llamada:
+                contents: `Analyze the following call transcript:
 "${transcript}"
 
-Debes devolver obligatoriamente un objeto JSON plano que cumpla exactamente con esta estructura y con todos los detalles redactados en INGLÉS:
+You must return a flat JSON object adhering exactly to this structure with all fields written in English:
 {
   "clientName": "Contact name or 'Unknown'",
   "companyName": "Company name or 'Unknown'",
