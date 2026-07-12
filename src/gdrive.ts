@@ -99,27 +99,37 @@ export async function createKYCDocument(
   const isCompliantText = data.isCompliant ? 'COMPLIANT (YES)' : 'NON-COMPLIANT ALERT (NO - POLICY BREACH)';
   const severityText = data.breachSeverity === 'CRITICAL' ? 'CRITICAL' : 'NONE';
   
-  const q = data.questionnaire || {
-    q1_name: clientName || '(no me lo ha contestado)',
-    q2_source: '(no me lo ha contestado)',
-    q3_country: data.country || '(no me lo ha contestado)',
-    q4_address_phone: data.contactInfo || '(no me lo ha contestado)',
-    q5_company_name: companyName || '(no me lo ha contestado)',
-    q6_activity: data.role || '(no me lo ha contestado)',
-    q7_statutory_db: data.taxId && data.taxId !== 'None' ? `${data.taxId} - ${data.taxIdResearch || ''}` : '(no me lo ha contestado)',
-    q8_formation_date: '(no me lo ha contestado)',
-    q9_years_trading: '(no me lo ha contestado)',
-    q10_shipping: '(no me lo ha contestado)',
-    q11_channel: '(no me lo ha contestado)',
-    q12_goods_in: '(no me lo ha contestado)',
-    q13_stock_shipping: '(no me lo ha contestado)',
-    q14_average_rrp: '(no me lo ha contestado)',
-    q15_start_date: '(no me lo ha contestado)',
-    q16_kyc: '(no me lo ha contestado)',
-    q17_capital: '(no me lo ha contestado)',
-    q18_europe: '(no me lo ha contestado)',
-    q19_pricing: '(no me lo ha contestado)',
-    q20_other: '(no me lo ha contestado)'
+  const rawQ = (data.questionnaire || {}) as any;
+  const sanitizeVal = (val: any, fallback: string) => {
+    if (val === undefined || val === null) return fallback;
+    const s = String(val).trim();
+    if (!s || s.toLowerCase() === 'none' || s.toLowerCase() === 'unknown' || s.toLowerCase() === 'n/a') {
+      return fallback;
+    }
+    return s;
+  };
+
+  const q = {
+    q1_name: sanitizeVal(rawQ.q1_name, clientName || '(no me lo ha contestado)'),
+    q2_source: sanitizeVal(rawQ.q2_source, '(no me lo ha contestado)'),
+    q3_country: sanitizeVal(rawQ.q3_country, data.country || '(no me lo ha contestado)'),
+    q4_address_phone: sanitizeVal(rawQ.q4_address_phone, data.contactInfo || '(no me lo ha contestado)'),
+    q5_company_name: sanitizeVal(rawQ.q5_company_name, companyName || '(no me lo ha contestado)'),
+    q6_activity: sanitizeVal(rawQ.q6_activity, data.role || '(no me lo ha contestado)'),
+    q7_statutory_db: sanitizeVal(rawQ.q7_statutory_db, data.taxId && data.taxId !== 'None' ? `${data.taxId} - ${data.taxIdResearch || ''}` : '(no me lo ha contestado)'),
+    q8_formation_date: sanitizeVal(rawQ.q8_formation_date, '(no me lo ha contestado)'),
+    q9_years_trading: sanitizeVal(rawQ.q9_years_trading, '(no me lo ha contestado)'),
+    q10_shipping: sanitizeVal(rawQ.q10_shipping, '(no me lo ha contestado)'),
+    q11_channel: sanitizeVal(rawQ.q11_channel, '(no me lo ha contestado)'),
+    q12_goods_in: sanitizeVal(rawQ.q12_goods_in, '(no me lo ha contestado)'),
+    q13_stock_shipping: sanitizeVal(rawQ.q13_stock_shipping, '(no me lo ha contestado)'),
+    q14_average_rrp: sanitizeVal(rawQ.q14_average_rrp, '(no me lo ha contestado)'),
+    q15_start_date: sanitizeVal(rawQ.q15_start_date, '(no me lo ha contestado)'),
+    q16_kyc: sanitizeVal(rawQ.q16_kyc, '(no me lo ha contestado)'),
+    q17_capital: sanitizeVal(rawQ.q17_capital, '(no me lo ha contestado)'),
+    q18_europe: sanitizeVal(rawQ.q18_europe, '(no me lo ha contestado)'),
+    q19_pricing: sanitizeVal(rawQ.q19_pricing, '(no me lo ha contestado)'),
+    q20_other: sanitizeVal(rawQ.q20_other, '(no me lo ha contestado)')
   };
 
   const bodyText = `Huboo – Client Onboarding

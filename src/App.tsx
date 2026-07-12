@@ -596,6 +596,88 @@ export default function App() {
     const isCompliantText = currentResult.isCompliant ? 'COMPLIANT (YES)' : 'NON-COMPLIANT ALERT (NO - POLICY BREACH)';
     const severityText = currentResult.breachSeverity === 'CRITICAL' ? 'CRITICAL' : 'NONE';
 
+    const rawQ = currentResult.questionnaire || {};
+    const sanitizeVal = (val: any, fallback: string) => {
+      if (val === undefined || val === null) return fallback;
+      const s = String(val).trim();
+      if (!s || s.toLowerCase() === 'none' || s.toLowerCase() === 'unknown' || s.toLowerCase() === 'n/a') {
+        return fallback;
+      }
+      return s;
+    };
+
+    const q = {
+      q1_name: sanitizeVal(rawQ.q1_name, currentResult.clientName || '(no me lo ha contestado)'),
+      q2_source: sanitizeVal(rawQ.q2_source, '(no me lo ha contestado)'),
+      q3_country: sanitizeVal(rawQ.q3_country, currentResult.country || '(no me lo ha contestado)'),
+      q4_address_phone: sanitizeVal(rawQ.q4_address_phone, currentResult.contactInfo || '(no me lo ha contestado)'),
+      q5_company_name: sanitizeVal(rawQ.q5_company_name, currentResult.companyName || '(no me lo ha contestado)'),
+      q6_activity: sanitizeVal(rawQ.q6_activity, currentResult.role || '(no me lo ha contestado)'),
+      q7_statutory_db: sanitizeVal(rawQ.q7_statutory_db, currentResult.taxId && currentResult.taxId !== 'None' ? `${currentResult.taxId} - ${currentResult.taxIdResearch || ''}` : '(no me lo ha contestado)'),
+      q8_formation_date: sanitizeVal(rawQ.q8_formation_date, '(no me lo ha contestado)'),
+      q9_years_trading: sanitizeVal(rawQ.q9_years_trading, '(no me lo ha contestado)'),
+      q10_shipping: sanitizeVal(rawQ.q10_shipping, '(no me lo ha contestado)'),
+      q11_channel: sanitizeVal(rawQ.q11_channel, '(no me lo ha contestado)'),
+      q12_goods_in: sanitizeVal(rawQ.q12_goods_in, '(no me lo ha contestado)'),
+      q13_stock_shipping: sanitizeVal(rawQ.q13_stock_shipping, '(no me lo ha contestado)'),
+      q14_average_rrp: sanitizeVal(rawQ.q14_average_rrp, '(no me lo ha contestado)'),
+      q15_start_date: sanitizeVal(rawQ.q15_start_date, '(no me lo ha contestado)'),
+      q16_kyc: sanitizeVal(rawQ.q16_kyc, '(no me lo ha contestado)'),
+      q17_capital: sanitizeVal(rawQ.q17_capital, '(no me lo ha contestado)'),
+      q18_europe: sanitizeVal(rawQ.q18_europe, '(no me lo ha contestado)'),
+      q19_pricing: sanitizeVal(rawQ.q19_pricing, '(no me lo ha contestado)'),
+      q20_other: sanitizeVal(rawQ.q20_other, '(no me lo ha contestado)')
+    };
+
+    const questionnaireFields = [
+      { num: 1, label: "Name (primary contact / principal)", key: "q1_name" },
+      { num: 2, label: "Source (how client came; referrer)", key: "q2_source" },
+      { num: 3, label: "Country / residence", key: "q3_country" },
+      { num: 4, label: "Address and telephone number", key: "q4_address_phone" },
+      { num: 5, label: "Name of company (legal & trading)", key: "q5_company_name" },
+      { num: 6, label: "Activity (what business does; products)", key: "q6_activity" },
+      { num: 7, label: "Companies House / Statutory DB", key: "q7_statutory_db" },
+      { num: 8, label: "Date of formation", key: "q8_formation_date" },
+      { num: 9, label: "Years trading", key: "q9_years_trading" },
+      { num: 10, label: "Shipping (volumes; markets; carriers)", key: "q10_shipping" },
+      { num: 11, label: "Channel (D2C / B2B / marketplace)", key: "q11_channel" },
+      { num: 12, label: "Goods in / source (origin of stock)", key: "q12_goods_in" },
+      { num: 13, label: "Stock & shipping (SKUs; fulfilment)", key: "q13_stock_shipping" },
+      { num: 14, label: "Average RRP (order value / weight)", key: "q14_average_rrp" },
+      { num: 15, label: "Start date (target go-live)", key: "q15_start_date" },
+      { num: 16, label: "KYC checks (UBO IDs; certified docs)", key: "q16_kyc" },
+      { num: 17, label: "Capital (funding position; funds origin)", key: "q17_capital" },
+      { num: 18, label: "Europe (EU ops; VAT registrations)", key: "q18_europe" },
+      { num: 19, label: "Pricing (agreed card; B2B charges)", key: "q19_pricing" },
+      { num: 20, label: "Other (notes; special risks)", key: "q20_other" }
+    ];
+
+    const questionnaireHtml = `
+        <div class="card" style="margin-bottom: 30px; background-color: #fcfdfd; border: 1px solid #e2e8f0; padding: 24px;">
+            <h3 style="color: #047857; border-bottom: 2px solid #a7f3d0; padding-bottom: 8px; margin-bottom: 16px; font-size: 18px;">
+                📋 Huboo Onboarding Questionnaire
+            </h3>
+            <div style="display: grid; grid-template-columns: 1fr; gap: 16px;">
+                ${questionnaireFields.map(field => {
+                  const val = (q as any)[field.key] || '(no me lo ha contestado)';
+                  const isUnanswered = val.includes('(no me lo ha contestado)');
+                  const answerBg = isUnanswered ? '#fef3c7' : '#f8fafc';
+                  const answerColor = isUnanswered ? '#b45309' : '#1e293b';
+                  const answerStyle = isUnanswered ? 'font-style: italic;' : '';
+                  return `
+                    <div style="border-bottom: 1px dashed #e2e8f0; padding-bottom: 12px;">
+                        <span style="font-size: 11px; font-weight: bold; color: #64748b; font-family: monospace;">PREGUNTA ${field.num}</span>
+                        <strong style="display: block; font-size: 13px; color: #334155; margin-bottom: 4px;">${field.label}</strong>
+                        <div style="background-color: ${answerBg}; color: ${answerColor}; ${answerStyle} padding: 10px; border-radius: 4px; font-size: 13px; border-left: 3px solid ${isUnanswered ? '#f59e0b' : '#3b82f6'};">
+                            ${val}
+                        </div>
+                    </div>
+                  `;
+                }).join('')}
+            </div>
+        </div>
+    `;
+
     const taxIdHtml = currentResult.taxId && currentResult.taxId !== 'None' ? `
         <div class="card" style="margin-bottom: 30px;">
             <h3>6. Tax Identification & Registry Research (VAT/CIF/NIF)</h3>
@@ -619,7 +701,7 @@ export default function App() {
     <title>KYC Compliance Report - ${currentResult.companyName}</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #1e293b; background-color: #f8fafc; padding: 40px; margin: 0; }
-        .container { max-width: 800px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        .container { max-width: 850px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
         h1 { color: #0f172a; margin-top: 0; font-size: 24px; border-bottom: 2px solid #cbd5e1; padding-bottom: 12px; }
         .badge { display: inline-block; padding: 6px 12px; border-radius: 9999px; font-weight: bold; font-size: 14px; margin-bottom: 20px; }
         .badge-success { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
@@ -657,6 +739,8 @@ export default function App() {
                 <p><strong>Risk Assessment:</strong> ${currentResult.kycChecklist.riskAssessmentCompleted ? '🟢 Verified' : '❌ Pending'}</p>
             </div>
         </div>
+
+        ${questionnaireHtml}
 
         <div class="card" style="margin-bottom: 30px;">
             <h3>3. Summary of Commercial Topics Discussed</h3>
@@ -1379,7 +1463,7 @@ export default function App() {
                       { num: 19, label: "Pricing (agreed card; B2B charges)", key: "q19_pricing" },
                       { num: 20, label: "Other (notes; special risks)", key: "q20_other" }
                     ].map((item) => {
-                      const val = currentResult.questionnaire 
+                      const rawVal = currentResult.questionnaire 
                         ? (currentResult.questionnaire as any)[item.key] 
                         : (item.key === "q1_name" ? currentResult.clientName :
                            item.key === "q3_country" ? currentResult.country :
@@ -1389,7 +1473,17 @@ export default function App() {
                            item.key === "q7_statutory_db" ? (currentResult.taxId && currentResult.taxId !== 'None' ? `${currentResult.taxId} - ${currentResult.taxIdResearch || ''}` : '(no me lo ha contestado)') :
                            '(no me lo ha contestado)');
                            
-                      const isUnanswered = !val || val.includes('(no me lo ha contestado)');
+                      const sanitizeDisplayVal = (val: any) => {
+                        if (val === undefined || val === null) return '(no me lo ha contestado)';
+                        const s = String(val).trim();
+                        if (!s || s.toLowerCase() === 'none' || s.toLowerCase() === 'unknown' || s.toLowerCase() === 'n/a' || s === '(no me lo ha contestado)') {
+                          return '(no me lo ha contestado)';
+                        }
+                        return s;
+                      };
+                      
+                      const val = sanitizeDisplayVal(rawVal);
+                      const isUnanswered = val.includes('(no me lo ha contestado)');
                       
                       return (
                         <div key={item.key} className="bg-white p-3 rounded border border-slate-200 flex flex-col justify-between hover:shadow-sm transition-all duration-200">
@@ -1406,7 +1500,7 @@ export default function App() {
                               ? 'bg-amber-50/50 text-amber-700 border-amber-100 italic' 
                               : 'bg-slate-50 text-slate-900 border-slate-100 font-sans'
                           }`}>
-                            {val || '(no me lo ha contestado)'}
+                            {val}
                           </div>
                         </div>
                       );
