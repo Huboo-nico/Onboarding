@@ -262,7 +262,10 @@ Your role:
    - Spanish NIF/DNI: It comprises 8 digits followed by a single control letter (for individuals) or starts with a letter (for foreigners/companies) followed by 7 digits and a control letter/digit.
    - EU VAT ID: Verify if the country prefix matches EU ISO standards (e.g., ES for Spain, FR for France, DE for Germany, etc.) and comment on the expected format structure.
    - Summarize the potential validity of this identifier format, indicate the country of origin, and include brief corporate/registry research details if applicable.
-7. MANDATORY REQUIREMENT: All audit findings, summaries, commercial descriptions, next steps, and tax research (fields: "commercialDetailsFound", "summaryOfCall", "nextStepsRequired", and "taxIdResearch") MUST be fully written in professional, grammatically perfect English for international corporate reporting, without exceptions.`;
+7. MANDATORY REQUIREMENT: All audit findings, summaries, commercial descriptions, next steps, and tax research (fields: "commercialDetailsFound", "summaryOfCall", "nextStepsRequired", and "taxIdResearch") MUST be fully written in professional, grammatically perfect English for international corporate reporting, without exceptions.
+8. HUBOO ONBOARDING QUESTIONNAIRE EXTRACTION: You must extract and compile answers to the 20 questions for the Huboo Onboarding Questionnaire in the "questionnaire" field.
+   CRITICAL CONSTRAINT: If there is no answer or mention of a question's topic in the transcript, you MUST literally return '(no me lo ha contestado)' for that question. Do NOT make up any details or use generic placeholders like 'Unknown', 'N/A', or 'None'. The text MUST be exactly '(no me lo ha contestado)'.
+   Ensure question 7 (q7_statutory_db) incorporates any Spanish CIF/NIF/VAT tax registration research details (like what type of company it indicates, the registration number format validation, checks completed) if found, or states '(no me lo ha contestado)' if no tax id or registration info was mentioned.`;
 
     let lastError: any = null;
     let result: any = null;
@@ -321,13 +324,45 @@ Your role:
                     description: "List of 3 to 5 immediate actions required to bring the client into full compliance. MUST be in English."
                   },
                   taxId: { type: Type.STRING, description: "Extracted CIF, NIF, or VAT tax registration number if found. Set to 'None' if not present." },
-                  taxIdResearch: { type: Type.STRING, description: "Brief format/validity research and country check based on the tax identifier found. MUST be in English. 'No VAT/CIF/NIF tax identifier found in the transcript.' if not applicable." }
+                  taxIdResearch: { type: Type.STRING, description: "Brief format/validity research and country check based on the tax identifier found. MUST be in English. 'No VAT/CIF/NIF tax identifier found in the transcript.' if not applicable." },
+                  
+                  questionnaire: {
+                    type: Type.OBJECT,
+                    properties: {
+                      q1_name: { type: Type.STRING, description: "1. Name (primary contact / principal). Extract or '(no me lo ha contestado)'." },
+                      q2_source: { type: Type.STRING, description: "2. Source (how they came to us; referrer). Extract or '(no me lo ha contestado)'." },
+                      q3_country: { type: Type.STRING, description: "3. Country / residence. Extract or '(no me lo ha contestado)'." },
+                      q4_address_phone: { type: Type.STRING, description: "4. Address and telephone number. Extract or '(no me lo ha contestado)'." },
+                      q5_company_name: { type: Type.STRING, description: "5. Name of company (legal and trading name). Extract or '(no me lo ha contestado)'." },
+                      q6_activity: { type: Type.STRING, description: "6. Activity (what the business does; product categories). Extract or '(no me lo ha contestado)'." },
+                      q7_statutory_db: { type: Type.STRING, description: "7. Companies House / statutory databases (registration number; checks completed). If a Spanish CIF/NIF/VAT is found, include format/validity research and details. Extract or '(no me lo ha contestado)'." },
+                      q8_formation_date: { type: Type.STRING, description: "8. Date of formation. Extract or '(no me lo ha contestado)'." },
+                      q9_years_trading: { type: Type.STRING, description: "9. Years trading. Extract or '(no me lo ha contestado)'." },
+                      q10_shipping: { type: Type.STRING, description: "10. Shipping (volumes; markets; carriers). Extract or '(no me lo ha contestado)'." },
+                      q11_channel: { type: Type.STRING, description: "11. Channel (D2C / B2B / marketplace). Extract or '(no me lo ha contestado)'." },
+                      q12_goods_in: { type: Type.STRING, description: "12. Goods in / source (where stock originates; inbound). Extract or '(no me lo ha contestado)'." },
+                      q13_stock_shipping: { type: Type.STRING, description: "13. Stock & shipping (SKUs; storage; fulfilment profile). Extract or '(no me lo ha contestado)'." },
+                      q14_average_rrp: { type: Type.STRING, description: "14. Average RRP (and average order value / weight). Extract or '(no me lo ha contestado)'." },
+                      q15_start_date: { type: Type.STRING, description: "15. Start date (target go-live). Extract or '(no me lo ha contestado)'." },
+                      q16_kyc: { type: Type.STRING, description: "16. KYC (ID and address for UBOs and directors; certified docs; screening). Extract or '(no me lo ha contestado)'." },
+                      q17_capital: { type: Type.STRING, description: "17. Capital (funding position; investors; source of funds). Extract or '(no me lo ha contestado)'." },
+                      q18_europe: { type: Type.STRING, description: "18. Europe (EU operations; VAT registrations; markets). Extract or '(no me lo ha contestado)'." },
+                      q19_pricing: { type: Type.STRING, description: "19. Pricing (agreed rate card; B2B charges). Extract or '(no me lo ha contestado)'." },
+                      q20_other: { type: Type.STRING, description: "20. Other (notes; special requirements; risks). Extract or '(no me lo ha contestado)'." }
+                    },
+                    required: [
+                      "q1_name", "q2_source", "q3_country", "q4_address_phone", "q5_company_name",
+                      "q6_activity", "q7_statutory_db", "q8_formation_date", "q9_years_trading", "q10_shipping",
+                      "q11_channel", "q12_goods_in", "q13_stock_shipping", "q14_average_rrp", "q15_start_date",
+                      "q16_kyc", "q17_capital", "q18_europe", "q19_pricing", "q20_other"
+                    ]
+                  }
                 },
                 required: [
                   "clientName", "companyName", "role", "country", "contactInfo", 
                   "kycChecklist", "commercialDiscussionsDetected", "commercialDetailsFound", 
                   "isCompliant", "breachSeverity", "summaryOfCall", "nextStepsRequired",
-                  "taxId", "taxIdResearch"
+                  "taxId", "taxIdResearch", "questionnaire"
                 ]
               }
             }
@@ -456,7 +491,29 @@ You must return a flat JSON object adhering exactly to this structure with all f
   "summaryOfCall": "brief audit summary in English",
   "nextStepsRequired": ["action 1 in English", "action 2 in English"],
   "taxId": "extracted VAT/CIF/NIF or 'None'",
-  "taxIdResearch": "brief research analysis of tax number in English"
+  "taxIdResearch": "brief research analysis of tax number in English",
+  "questionnaire": {
+    "q1_name": "Answer or '(no me lo ha contestado)'",
+    "q2_source": "Answer or '(no me lo ha contestado)'",
+    "q3_country": "Answer or '(no me lo ha contestado)'",
+    "q4_address_phone": "Answer or '(no me lo ha contestado)'",
+    "q5_company_name": "Answer or '(no me lo ha contestado)'",
+    "q6_activity": "Answer or '(no me lo ha contestado)'",
+    "q7_statutory_db": "Answer or '(no me lo ha contestado)'",
+    "q8_formation_date": "Answer or '(no me lo ha contestado)'",
+    "q9_years_trading": "Answer or '(no me lo ha contestado)'",
+    "q10_shipping": "Answer or '(no me lo ha contestado)'",
+    "q11_channel": "Answer or '(no me lo ha contestado)'",
+    "q12_goods_in": "Answer or '(no me lo ha contestado)'",
+    "q13_stock_shipping": "Answer or '(no me lo ha contestado)'",
+    "q14_average_rrp": "Answer or '(no me lo ha contestado)'",
+    "q15_start_date": "Answer or '(no me lo ha contestado)'",
+    "q16_kyc": "Answer or '(no me lo ha contestado)'",
+    "q17_capital": "Answer or '(no me lo ha contestado)'",
+    "q18_europe": "Answer or '(no me lo ha contestado)'",
+    "q19_pricing": "Answer or '(no me lo ha contestado)'",
+    "q20_other": "Answer or '(no me lo ha contestado)'"
+  }
 }`,
             config: {
               systemInstruction,
@@ -490,7 +547,29 @@ You must return a flat JSON object adhering exactly to this structure with all f
   "summaryOfCall": "brief audit summary in English",
   "nextStepsRequired": ["action 1 in English", "action 2 in English"],
   "taxId": "extracted VAT/CIF/NIF or 'None'",
-  "taxIdResearch": "brief research analysis of tax number in English"
+  "taxIdResearch": "brief research analysis of tax number in English",
+  "questionnaire": {
+    "q1_name": "Answer or '(no me lo ha contestado)'",
+    "q2_source": "Answer or '(no me lo ha contestado)'",
+    "q3_country": "Answer or '(no me lo ha contestado)'",
+    "q4_address_phone": "Answer or '(no me lo ha contestado)'",
+    "q5_company_name": "Answer or '(no me lo ha contestado)'",
+    "q6_activity": "Answer or '(no me lo ha contestado)'",
+    "q7_statutory_db": "Answer or '(no me lo ha contestado)'",
+    "q8_formation_date": "Answer or '(no me lo ha contestado)'",
+    "q9_years_trading": "Answer or '(no me lo ha contestado)'",
+    "q10_shipping": "Answer or '(no me lo ha contestado)'",
+    "q11_channel": "Answer or '(no me lo ha contestado)'",
+    "q12_goods_in": "Answer or '(no me lo ha contestado)'",
+    "q13_stock_shipping": "Answer or '(no me lo ha contestado)'",
+    "q14_average_rrp": "Answer or '(no me lo ha contestado)'",
+    "q15_start_date": "Answer or '(no me lo ha contestado)'",
+    "q16_kyc": "Answer or '(no me lo ha contestado)'",
+    "q17_capital": "Answer or '(no me lo ha contestado)'",
+    "q18_europe": "Answer or '(no me lo ha contestado)'",
+    "q19_pricing": "Answer or '(no me lo ha contestado)'",
+    "q20_other": "Answer or '(no me lo ha contestado)'"
+  }
 }`,
             config: {
               systemInstruction,
@@ -535,7 +614,29 @@ You must return a flat JSON object adhering exactly to this structure with all f
   "summaryOfCall": "brief audit summary in English",
   "nextStepsRequired": ["action 1 in English", "action 2 in English"],
   "taxId": "extracted VAT/CIF/NIF or 'None'",
-  "taxIdResearch": "brief research analysis of tax number in English"
+  "taxIdResearch": "brief research analysis of tax number in English",
+  "questionnaire": {
+    "q1_name": "Answer or '(no me lo ha contestado)'",
+    "q2_source": "Answer or '(no me lo ha contestado)'",
+    "q3_country": "Answer or '(no me lo ha contestado)'",
+    "q4_address_phone": "Answer or '(no me lo ha contestado)'",
+    "q5_company_name": "Answer or '(no me lo ha contestado)'",
+    "q6_activity": "Answer or '(no me lo ha contestado)'",
+    "q7_statutory_db": "Answer or '(no me lo ha contestado)'",
+    "q8_formation_date": "Answer or '(no me lo ha contestado)'",
+    "q9_years_trading": "Answer or '(no me lo ha contestado)'",
+    "q10_shipping": "Answer or '(no me lo ha contestado)'",
+    "q11_channel": "Answer or '(no me lo ha contestado)'",
+    "q12_goods_in": "Answer or '(no me lo ha contestado)'",
+    "q13_stock_shipping": "Answer or '(no me lo ha contestado)'",
+    "q14_average_rrp": "Answer or '(no me lo ha contestado)'",
+    "q15_start_date": "Answer or '(no me lo ha contestado)'",
+    "q16_kyc": "Answer or '(no me lo ha contestado)'",
+    "q17_capital": "Answer or '(no me lo ha contestado)'",
+    "q18_europe": "Answer or '(no me lo ha contestado)'",
+    "q19_pricing": "Answer or '(no me lo ha contestado)'",
+    "q20_other": "Answer or '(no me lo ha contestado)'"
+  }
 }`,
                 config: {
                   systemInstruction,
@@ -569,7 +670,29 @@ You must return a flat JSON object adhering exactly to this structure with all f
   "summaryOfCall": "brief audit summary in English",
   "nextStepsRequired": ["action 1 in English", "action 2 in English"],
   "taxId": "extracted VAT/CIF/NIF or 'None'",
-  "taxIdResearch": "brief research analysis of tax number in English"
+  "taxIdResearch": "brief research analysis of tax number in English",
+  "questionnaire": {
+    "q1_name": "Answer or '(no me lo ha contestado)'",
+    "q2_source": "Answer or '(no me lo ha contestado)'",
+    "q3_country": "Answer or '(no me lo ha contestado)'",
+    "q4_address_phone": "Answer or '(no me lo ha contestado)'",
+    "q5_company_name": "Answer or '(no me lo ha contestado)'",
+    "q6_activity": "Answer or '(no me lo ha contestado)'",
+    "q7_statutory_db": "Answer or '(no me lo ha contestado)'",
+    "q8_formation_date": "Answer or '(no me lo ha contestado)'",
+    "q9_years_trading": "Answer or '(no me lo ha contestado)'",
+    "q10_shipping": "Answer or '(no me lo ha contestado)'",
+    "q11_channel": "Answer or '(no me lo ha contestado)'",
+    "q12_goods_in": "Answer or '(no me lo ha contestado)'",
+    "q13_stock_shipping": "Answer or '(no me lo ha contestado)'",
+    "q14_average_rrp": "Answer or '(no me lo ha contestado)'",
+    "q15_start_date": "Answer or '(no me lo ha contestado)'",
+    "q16_kyc": "Answer or '(no me lo ha contestado)'",
+    "q17_capital": "Answer or '(no me lo ha contestado)'",
+    "q18_europe": "Answer or '(no me lo ha contestado)'",
+    "q19_pricing": "Answer or '(no me lo ha contestado)'",
+    "q20_other": "Answer or '(no me lo ha contestado)'"
+  }
 }`,
                 config: {
                   systemInstruction,

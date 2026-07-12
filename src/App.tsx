@@ -1344,6 +1344,76 @@ export default function App() {
                   )}
                 </div>
 
+                {/* 2.5 Cuestionario de Onboarding Huboo (20 Preguntas) */}
+                <div className="bg-slate-50 border border-slate-200 rounded p-5">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
+                    <h3 className="font-display font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                      <FileText className="w-4 h-4 text-emerald-600" />
+                      Huboo - Client Onboarding Questionnaire (20 Preguntas)
+                    </h3>
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded font-bold font-mono uppercase">
+                      Extracción Inteligente
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                    {[
+                      { num: 1, label: "Name (primary contact / principal)", key: "q1_name" },
+                      { num: 2, label: "Source (how client came; referrer)", key: "q2_source" },
+                      { num: 3, label: "Country / residence", key: "q3_country" },
+                      { num: 4, label: "Address and telephone number", key: "q4_address_phone" },
+                      { num: 5, label: "Name of company (legal & trading)", key: "q5_company_name" },
+                      { num: 6, label: "Activity (what business does; products)", key: "q6_activity" },
+                      { num: 7, label: "Companies House / Statutory DB", key: "q7_statutory_db" },
+                      { num: 8, label: "Date of formation", key: "q8_formation_date" },
+                      { num: 9, label: "Years trading", key: "q9_years_trading" },
+                      { num: 10, label: "Shipping (volumes; markets; carriers)", key: "q10_shipping" },
+                      { num: 11, label: "Channel (D2C / B2B / marketplace)", key: "q11_channel" },
+                      { num: 12, label: "Goods in / source (origin of stock)", key: "q12_goods_in" },
+                      { num: 13, label: "Stock & shipping (SKUs; fulfilment)", key: "q13_stock_shipping" },
+                      { num: 14, label: "Average RRP (order value / weight)", key: "q14_average_rrp" },
+                      { num: 15, label: "Start date (target go-live)", key: "q15_start_date" },
+                      { num: 16, label: "KYC checks (UBO IDs; certified docs)", key: "q16_kyc" },
+                      { num: 17, label: "Capital (funding position; funds origin)", key: "q17_capital" },
+                      { num: 18, label: "Europe (EU ops; VAT registrations)", key: "q18_europe" },
+                      { num: 19, label: "Pricing (agreed card; B2B charges)", key: "q19_pricing" },
+                      { num: 20, label: "Other (notes; special risks)", key: "q20_other" }
+                    ].map((item) => {
+                      const val = currentResult.questionnaire 
+                        ? (currentResult.questionnaire as any)[item.key] 
+                        : (item.key === "q1_name" ? currentResult.clientName :
+                           item.key === "q3_country" ? currentResult.country :
+                           item.key === "q4_address_phone" ? currentResult.contactInfo :
+                           item.key === "q5_company_name" ? currentResult.companyName :
+                           item.key === "q6_activity" ? currentResult.role :
+                           item.key === "q7_statutory_db" ? (currentResult.taxId && currentResult.taxId !== 'None' ? `${currentResult.taxId} - ${currentResult.taxIdResearch || ''}` : '(no me lo ha contestado)') :
+                           '(no me lo ha contestado)');
+                           
+                      const isUnanswered = !val || val.includes('(no me lo ha contestado)');
+                      
+                      return (
+                        <div key={item.key} className="bg-white p-3 rounded border border-slate-200 flex flex-col justify-between hover:shadow-sm transition-all duration-200">
+                          <div>
+                            <span className="text-[10px] text-slate-400 font-mono font-bold block mb-0.5">
+                              PREGUNTA {item.num}
+                            </span>
+                            <span className="text-xs font-semibold text-slate-800 block mb-2 leading-snug">
+                              {item.label}
+                            </span>
+                          </div>
+                          <div className={`text-xs p-2.5 rounded font-medium border ${
+                            isUnanswered 
+                              ? 'bg-amber-50/50 text-amber-700 border-amber-100 italic' 
+                              : 'bg-slate-50 text-slate-900 border-slate-100 font-sans'
+                          }`}>
+                            {val || '(no me lo ha contestado)'}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 {/* 3. Discusiones Comerciales Detectadas */}
                 <div className={`p-4 rounded border ${
                   currentResult.commercialDiscussionsDetected 
