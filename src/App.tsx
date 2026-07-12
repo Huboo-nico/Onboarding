@@ -77,6 +77,7 @@ export default function App() {
   const [hasGeminiKey2, setHasGeminiKey2] = useState<boolean | null>(null);
   const [checkingConfig, setCheckingConfig] = useState<boolean>(false);
   const [customGeminiKey, setCustomGeminiKey] = useState<string>('');
+  const [customGeminiKey2, setCustomGeminiKey2] = useState<string>('');
   const [showCustomGeminiInput, setShowCustomGeminiInput] = useState<boolean>(false);
   const [testingConnection, setTestingConnection] = useState<boolean>(false);
   const [testingConnectionKey, setTestingConnectionKey] = useState<1 | 2 | null>(null);
@@ -93,11 +94,13 @@ export default function App() {
     setConnectionResult(null);
     try {
       const savedKey = localStorage.getItem('custom_gemini_api_key') || '';
+      const savedKey2 = localStorage.getItem('custom_gemini_api_key_2') || '';
       const response = await fetch('/api/test-key', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-gemini-key': savedKey,
+          'x-gemini-key-2': savedKey2,
         },
         body: JSON.stringify({ keyIndex }),
       });
@@ -149,9 +152,11 @@ export default function App() {
     setCheckingConfig(true);
     try {
       const savedKey = localStorage.getItem('custom_gemini_api_key') || '';
+      const savedKey2 = localStorage.getItem('custom_gemini_api_key_2') || '';
       const res = await fetch('/api/config-status', {
         headers: {
           'x-gemini-key': savedKey,
+          'x-gemini-key-2': savedKey2,
         }
       });
       if (res.ok) {
@@ -195,6 +200,11 @@ export default function App() {
     const savedGeminiKey = localStorage.getItem('custom_gemini_api_key') || '';
     if (savedGeminiKey) {
       setCustomGeminiKey(savedGeminiKey);
+    }
+
+    const savedGeminiKey2 = localStorage.getItem('custom_gemini_api_key_2') || '';
+    if (savedGeminiKey2) {
+      setCustomGeminiKey2(savedGeminiKey2);
     }
 
     // Load clients history from localStorage
@@ -439,11 +449,13 @@ export default function App() {
 
     try {
       const savedKey = localStorage.getItem('custom_gemini_api_key') || '';
+      const savedKey2 = localStorage.getItem('custom_gemini_api_key_2') || '';
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-gemini-key': savedKey,
+          'x-gemini-key-2': savedKey2,
         },
         body: JSON.stringify({ transcript }),
       });
@@ -898,48 +910,97 @@ export default function App() {
                 </button>
                 
                 {showCustomGeminiInput && (
-                  <div className="p-2.5 bg-white border border-indigo-100 rounded flex flex-col gap-2 mt-1 animate-fadeIn">
+                  <div className="p-2.5 bg-white border border-indigo-100 rounded flex flex-col gap-3.5 mt-1 animate-fadeIn">
                     <p className="text-[10px] leading-relaxed text-slate-500">
-                      Si tienes problemas con las variables de entorno de Vercel, ingresa tu API Key de Gemini aquí. Se guardará de forma segura en tu navegador y se usará para el análisis de inmediato.
+                      Si tienes problemas con las variables de entorno de Vercel, ingresa tus API Keys de Gemini aquí. Se guardarán de forma segura en tu navegador y se usarán de inmediato.
                     </p>
-                    <div className="flex gap-1.5">
-                      <input
-                        type="password"
-                        value={customGeminiKey}
-                        onChange={(e) => setCustomGeminiKey(e.target.value)}
-                        placeholder="AIzaSy..."
-                        className="bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs text-slate-800 w-full focus:outline-none focus:border-indigo-500 font-mono"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const trimmed = customGeminiKey.trim();
-                          if (!trimmed) {
-                            alert('Por favor, ingresa una clave válida.');
-                            return;
-                          }
-                          localStorage.setItem('custom_gemini_api_key', trimmed);
-                          alert('Clave de API de Gemini guardada correctamente.');
-                          checkConfigStatus();
-                        }}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] px-2.5 py-1 rounded transition cursor-pointer shrink-0"
-                      >
-                        Guardar
-                      </button>
-                      {localStorage.getItem('custom_gemini_api_key') && (
+                    
+                    {/* Key 1 Input */}
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Clave Principal (Key 1)</label>
+                      <div className="flex gap-1.5">
+                        <input
+                          type="password"
+                          value={customGeminiKey}
+                          onChange={(e) => setCustomGeminiKey(e.target.value)}
+                          placeholder="AIzaSy... (Clave Principal)"
+                          className="bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs text-slate-800 w-full focus:outline-none focus:border-indigo-500 font-mono"
+                        />
                         <button
                           type="button"
                           onClick={() => {
-                            localStorage.removeItem('custom_gemini_api_key');
-                            setCustomGeminiKey('');
-                            alert('Se eliminó tu clave de API manual. El servidor volverá a usar la del entorno de Vercel.');
+                            const trimmed = customGeminiKey.trim();
+                            if (!trimmed) {
+                              alert('Por favor, ingresa una clave válida.');
+                              return;
+                            }
+                            localStorage.setItem('custom_gemini_api_key', trimmed);
+                            alert('Clave Principal (Key 1) de Gemini guardada correctamente.');
                             checkConfigStatus();
                           }}
-                          className="bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-semibold text-[10px] px-2 py-1 rounded transition cursor-pointer shrink-0"
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] px-2.5 py-1 rounded transition cursor-pointer shrink-0"
                         >
-                          Borrar
+                          Guardar
                         </button>
-                      )}
+                        {localStorage.getItem('custom_gemini_api_key') && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              localStorage.removeItem('custom_gemini_api_key');
+                              setCustomGeminiKey('');
+                              alert('Se eliminó tu Clave Principal manual.');
+                              checkConfigStatus();
+                            }}
+                            className="bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-semibold text-[10px] px-2 py-1 rounded transition cursor-pointer shrink-0"
+                          >
+                            Borrar
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Key 2 Input */}
+                    <div className="flex flex-col gap-1 border-t border-slate-100 pt-2.5">
+                      <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Clave Secundaria (Key 2 / Respaldo)</label>
+                      <div className="flex gap-1.5">
+                        <input
+                          type="password"
+                          value={customGeminiKey2}
+                          onChange={(e) => setCustomGeminiKey2(e.target.value)}
+                          placeholder="AIzaSy... (Clave Secundaria)"
+                          className="bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs text-slate-800 w-full focus:outline-none focus:border-indigo-500 font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const trimmed = customGeminiKey2.trim();
+                            if (!trimmed) {
+                              alert('Por favor, ingresa una clave de respaldo válida.');
+                              return;
+                            }
+                            localStorage.setItem('custom_gemini_api_key_2', trimmed);
+                            alert('Clave Secundaria (Key 2) de Gemini guardada correctamente.');
+                            checkConfigStatus();
+                          }}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] px-2.5 py-1 rounded transition cursor-pointer shrink-0"
+                        >
+                          Guardar
+                        </button>
+                        {localStorage.getItem('custom_gemini_api_key_2') && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              localStorage.removeItem('custom_gemini_api_key_2');
+                              setCustomGeminiKey2('');
+                              alert('Se eliminó tu Clave Secundaria manual.');
+                              checkConfigStatus();
+                            }}
+                            className="bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-semibold text-[10px] px-2 py-1 rounded transition cursor-pointer shrink-0"
+                          >
+                            Borrar
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}

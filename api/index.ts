@@ -28,25 +28,53 @@ enum Type {
 }
 
 // Lazy-initialize Gemini SDK to prevent startup crashes when GEMINI_API_KEY is missing
-function getGeminiClient(customKey?: string, useKeyIndex: 1 | 2 = 1): any {
+function getGeminiClient(customKey1?: string, useKeyIndex: 1 | 2 = 1, customKey2?: string): any {
   let apiKey = "";
   
-  // 1. Check custom user key passed in request headers (and ensure it's not a placeholder string)
-  if (customKey && typeof customKey === "string") {
-    const trimmed = customKey.trim();
-    if (trimmed && trimmed !== "null" && trimmed !== "undefined") {
-      apiKey = trimmed;
+  if (useKeyIndex === 2) {
+    // 1. Try custom key 2 first
+    if (customKey2 && typeof customKey2 === "string") {
+      const trimmed = customKey2.trim();
+      if (trimmed && trimmed !== "null" && trimmed !== "undefined") {
+        apiKey = trimmed;
+      }
+    }
+    // 2. Fallback to server env key 2
+    if (!apiKey) {
+      const envKey2 = process.env.GEMINI_API_KEY_2 ? process.env.GEMINI_API_KEY_2.trim() : "";
+      if (envKey2 && envKey2 !== "null" && envKey2 !== "undefined" && envKey2 !== "MY_GEMINI_API_KEY") {
+        apiKey = envKey2;
+      }
+    }
+    // 3. Last-resort fallback to custom key 1
+    if (!apiKey && customKey1 && typeof customKey1 === "string") {
+      const trimmed = customKey1.trim();
+      if (trimmed && trimmed !== "null" && trimmed !== "undefined") {
+        apiKey = trimmed;
+      }
+    }
+  } else {
+    // 1. Try custom key 1 first
+    if (customKey1 && typeof customKey1 === "string") {
+      const trimmed = customKey1.trim();
+      if (trimmed && trimmed !== "null" && trimmed !== "undefined") {
+        apiKey = trimmed;
+      }
+    }
+    // 2. Fallback to server env key 1
+    if (!apiKey) {
+      const envKey1 = process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.trim() : "";
+      if (envKey1 && envKey1 !== "null" && envKey1 !== "undefined" && envKey1 !== "MY_GEMINI_API_KEY") {
+        apiKey = envKey1;
+      }
     }
   }
-  
-  // 2. Fallback to server-side process.env.GEMINI_API_KEY / GEMINI_API_KEY_2
+
+  // If still empty, check any available env keys as generic fallback
   if (!apiKey) {
     const envKey1 = process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.trim() : "";
     const envKey2 = process.env.GEMINI_API_KEY_2 ? process.env.GEMINI_API_KEY_2.trim() : "";
-    
-    if (useKeyIndex === 2 && envKey2 && envKey2 !== "null" && envKey2 !== "undefined" && envKey2 !== "MY_GEMINI_API_KEY") {
-      apiKey = envKey2;
-    } else if (envKey1 && envKey1 !== "null" && envKey1 !== "undefined" && envKey1 !== "MY_GEMINI_API_KEY") {
+    if (envKey1 && envKey1 !== "null" && envKey1 !== "undefined" && envKey1 !== "MY_GEMINI_API_KEY") {
       apiKey = envKey1;
     } else if (envKey2 && envKey2 !== "null" && envKey2 !== "undefined" && envKey2 !== "MY_GEMINI_API_KEY") {
       apiKey = envKey2;
@@ -91,6 +119,8 @@ app.get("/api/health", (req, res) => {
 // Config Status check
 app.get("/api/config-status", (req, res) => {
   let customKey = req.headers['x-gemini-key'] as string;
+  let customKey2 = req.headers['x-gemini-key-2'] as string;
+
   let hasKey = false;
   if (customKey) {
     customKey = customKey.trim();
@@ -105,7 +135,14 @@ app.get("/api/config-status", (req, res) => {
   }
 
   let hasKey2 = false;
-  if (process.env.GEMINI_API_KEY_2) {
+  if (customKey2) {
+    customKey2 = customKey2.trim();
+    if ((customKey2.startsWith('"') && customKey2.endsWith('"')) || (customKey2.startsWith("'") && customKey2.endsWith("'"))) {
+      customKey2 = customKey2.slice(1, -1).trim();
+    }
+    hasKey2 = customKey2.length > 0;
+  }
+  if (!hasKey2 && process.env.GEMINI_API_KEY_2) {
     const envKey2 = process.env.GEMINI_API_KEY_2.trim();
     hasKey2 = envKey2.length > 0 && envKey2 !== "MY_GEMINI_API_KEY";
   }
@@ -120,8 +157,9 @@ app.get("/api/config-status", (req, res) => {
 app.post("/api/test-key", async (req, res) => {
   try {
     const customKey = req.headers['x-gemini-key'] as string;
+    const customKey2 = req.headers['x-gemini-key-2'] as string;
     const keyIndex = req.body?.keyIndex === 2 ? 2 : 1;
-    const ai = getGeminiClient(customKey, keyIndex);
+    const ai = getGeminiClient(customKey, keyIndex, customKey2);
 
     const modelsToTry = [
       "gemini-3.5-flash",
@@ -196,7 +234,8 @@ app.post("/api/analyze", async (req, res) => {
     }
 
     const customKey = req.headers['x-gemini-key'] as string;
-    let ai = getGeminiClient(customKey, 1);
+    const customKey2 = req.headers['x-gemini-key-2'] as string;
+    let ai = getGeminiClient(customKey, 1, customKey2);
 
     const systemInstruction = `You are a high-level Corporate Compliance Officer (Compliance Auditor) of the highest authority.
 Your task is to analyze thoroughly the transcript of a conversation or call between a sales representative and a third party (client, partner, supplier, investor, etc.) according to the company's strict ZERO-TOLERANCE KYC policy.
@@ -330,12 +369,12 @@ Your role:
     lastError = firstAttempt.lastError;
 
     // Check if backup key GEMINI_API_KEY_2 is configured and we failed the first attempt
-    const hasKey2 = process.env.GEMINI_API_KEY_2 && process.env.GEMINI_API_KEY_2.trim() !== "" && process.env.GEMINI_API_KEY_2 !== "MY_GEMINI_API_KEY";
+    const hasKey2 = (customKey2 && customKey2.trim().length > 0) || (process.env.GEMINI_API_KEY_2 && process.env.GEMINI_API_KEY_2.trim() !== "" && process.env.GEMINI_API_KEY_2 !== "MY_GEMINI_API_KEY");
     
     if (!result && hasKey2) {
       console.warn("[Gemini API] Intento inicial falló o fue denegado. Activando conmutación por error a GEMINI_API_KEY_2...");
       try {
-        const ai2 = getGeminiClient(customKey, 2);
+        const ai2 = getGeminiClient(customKey, 2, customKey2);
         const secondAttempt = await attemptAnalysis(ai2);
         result = secondAttempt.result;
         lastError = secondAttempt.lastError;
@@ -465,10 +504,10 @@ You must return a flat JSON object adhering exactly to this structure with all f
         console.log("[Gemini API] ¡Análisis de respaldo exitoso!");
       } catch (fallbackErr: any) {
         // If backup key is available and we haven't tried it yet for fallback
-        if (hasKey2 && ai !== getGeminiClient(customKey, 2)) {
+        if (hasKey2 && ai !== getGeminiClient(customKey, 2, customKey2)) {
           try {
             console.warn("[Gemini API] Fallback primario falló. Reintentando fallback con Cliente Secundario (Key 2)...");
-            const ai2 = getGeminiClient(customKey, 2);
+            const ai2 = getGeminiClient(customKey, 2, customKey2);
             let fallbackResponse2;
             try {
               fallbackResponse2 = await ai2.models.generateContent({
