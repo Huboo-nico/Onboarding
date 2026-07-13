@@ -261,16 +261,15 @@ ${data.summaryOfCall || 'No transcript available.'}
 _This document was automatically compiled and uploaded by the Huboo KYC Compliance Automator._
 _Confidentiality Notice: INTERNAL COMPLIANCE RECORD ONLY. DO NOT DISTRIBUTE EXTERNALLY._`;
   
-  // 4. Create the Google Doc inside the company folder (or root as fallback) with content via multipart upload
-  const docTitle = `KYC Report - ${companyName} (${clientName})`;
+  // 4. Create the HTML report file inside the company folder (or root as fallback) with content via multipart upload
+  const docTitle = `KYC_Compliance_Report_${companyName.replace(/\s+/g, '_')}.html`;
   const boundary = '314159265358979323846';
   const metadata = {
     name: docTitle,
-    mimeType: 'application/vnd.google-apps.document',
+    mimeType: 'text/html',
     parents: folderId ? [folderId] : [],
   };
 
-  // HTML content generation for beautiful Google Docs rendering
   const escapeHtml = (str: string): string => {
     if (!str) return '';
     return str
@@ -289,264 +288,142 @@ _Confidentiality Notice: INTERNAL COMPLIANCE RECORD ONLY. DO NOT DISTRIBUTE EXTE
   const escCommercialDetails = escapeHtml(data.commercialDetailsFound || 'None.').replace(/\n/g, '<br/>');
   const escSummary = escapeHtml(data.summaryOfCall || 'No transcript available.').replace(/\n/g, '<br/>');
 
+  const questionnaireFields = [
+    { num: 1, label: "Name (primary contact / principal)", key: "q1_name" },
+    { num: 2, label: "Source (how client came; referrer)", key: "q2_source" },
+    { num: 3, label: "Country / residence", key: "q3_country" },
+    { num: 4, label: "Address and telephone number", key: "q4_address_phone" },
+    { num: 5, label: "Name of company (legal & trading)", key: "q5_company_name" },
+    { num: 6, label: "Activity (what business does; products)", key: "q6_activity" },
+    { num: 7, label: "Companies House / Statutory DB", key: "q7_statutory_db" },
+    { num: 8, label: "Date of formation", key: "q8_formation_date" },
+    { num: 9, label: "Years trading", key: "q9_years_trading" },
+    { num: 10, label: "Shipping (volumes; markets; carriers)", key: "q10_shipping" },
+    { num: 11, label: "Channel (D2C / B2B / marketplace)", key: "q11_channel" },
+    { num: 12, label: "Goods in / source (origin of stock)", key: "q12_goods_in" },
+    { num: 13, label: "Stock & shipping (SKUs; fulfilment)", key: "q13_stock_shipping" },
+    { num: 14, label: "Average RRP (order value / weight)", key: "q14_average_rrp" },
+    { num: 15, label: "Start date (target go-live)", key: "q15_start_date" },
+    { num: 16, label: "KYC checks (UBO IDs; certified docs)", key: "q16_kyc" },
+    { num: 17, label: "Capital (funding position; funds origin)", key: "q17_capital" },
+    { num: 18, label: "Europe (EU ops; VAT registrations)", key: "q18_europe" },
+    { num: 19, label: "Pricing (agreed card; B2B charges)", key: "q19_pricing" },
+    { num: 20, label: "Other (notes; special risks)", key: "q20_other" }
+  ];
+
+  const questionnaireHtml = `
+      <div class="card" style="margin-bottom: 30px; background-color: #fcfdfd; border: 1px solid #e2e8f0; padding: 24px;">
+          <h3 style="color: #047857; border-bottom: 2px solid #a7f3d0; padding-bottom: 8px; margin-bottom: 16px; font-size: 18px;">
+              📋 Huboo Onboarding Questionnaire (20 Questions)
+          </h3>
+          <div style="display: grid; grid-template-columns: 1fr; gap: 16px;">
+              ${questionnaireFields.map(field => {
+                const val = (q as any)[field.key] || fallbackText;
+                const isUnanswered = val === fallbackText || val.includes('(no me lo ha contestado)') || val.includes('(not answered)');
+                const answerBg = isUnanswered ? '#fef3c7' : '#f8fafc';
+                const answerColor = isUnanswered ? '#b45309' : '#1e293b';
+                const answerStyle = isUnanswered ? 'font-style: italic;' : '';
+                return `
+                  <div style="border-bottom: 1px dashed #e2e8f0; padding-bottom: 12px; text-align: left;">
+                      <span style="font-size: 11px; font-weight: bold; color: #64748b; font-family: monospace;">QUESTION ${field.num}</span>
+                      <strong style="display: block; font-size: 13px; color: #334155; margin-bottom: 4px;">${field.label}</strong>
+                      <div style="background-color: ${answerBg}; color: ${answerColor}; ${answerStyle} padding: 10px; border-radius: 4px; font-size: 13px; border-left: 3px solid ${isUnanswered ? '#f59e0b' : '#3b82f6'};">
+                          ${val}
+                      </div>
+                  </div>
+                `;
+              }).join('')}
+          </div>
+      </div>
+  `;
+
+  const taxIdHtml = data.taxId && data.taxId !== 'None' ? `
+      <div class="card" style="margin-bottom: 30px;">
+          <h3 style="margin-top: 0; color: #334155; font-size: 16px;">6. Tax Identification & Registry Research (VAT/CIF/NIF)</h3>
+          <p><strong>Extracted Tax ID:</strong> ${data.taxId}</p>
+          <div style="background-color: white; padding: 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-style: italic; font-size: 13px; margin-top: 10px; color: #475569;">
+              ${data.taxIdResearch}
+          </div>
+      </div>
+  ` : `
+      <div class="card" style="margin-bottom: 30px; opacity: 0.75;">
+          <h3 style="margin-top: 0; color: #334155; font-size: 16px;">6. Tax Identification & Registry Research (VAT/CIF/NIF)</h3>
+          <p>No NIF, CIF, or VAT tax registration numbers were identified in the conversation transcript for registry verification.</p>
+      </div>
+  `;
+
   const htmlBodyText = `<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      color: #334155;
-      line-height: 1.6;
-    }
-    .header {
-      border-bottom: 2px solid #3b82f6;
-      padding-bottom: 12px;
-      margin-bottom: 20px;
-    }
-    h1 {
-      color: #1e3a8a;
-      font-size: 22pt;
-      margin: 0;
-      font-weight: bold;
-    }
-    .subtitle {
-      color: #64748b;
-      font-size: 11pt;
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
-      margin-top: 4px;
-      margin-bottom: 0;
-      font-weight: bold;
-    }
-    h2 {
-      color: #1e3a8a;
-      font-size: 15pt;
-      margin-top: 25px;
-      border-bottom: 1px solid #e2e8f0;
-      padding-bottom: 6px;
-    }
-    h3 {
-      color: #0f172a;
-      font-size: 11pt;
-      margin-top: 18px;
-      margin-bottom: 8px;
-      font-weight: bold;
-    }
-    .status-container {
-      margin: 20px 0;
-    }
-    .status-box {
-      padding: 16px;
-      border-radius: 6px;
-      font-size: 11pt;
-    }
-    .status-compliant {
-      background-color: #ecfdf5;
-      border: 1px solid #a7f3d0;
-      color: #065f46;
-    }
-    .status-breach {
-      background-color: #fef2f2;
-      border: 1px solid #fecaca;
-      color: #991b1b;
-    }
-    blockquote {
-      background-color: #f8fafc;
-      border-left: 4px solid #cbd5e1;
-      padding: 12px 16px;
-      margin: 12px 0;
-      color: #475569;
-      font-style: italic;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 15px 0;
-    }
-    th, td {
-      border: 1px solid #e2e8f0;
-      padding: 10px 12px;
-      text-align: left;
-      font-size: 10pt;
-    }
-    th {
-      background-color: #f1f5f9;
-      color: #334155;
-      font-weight: bold;
-    }
-    .checklist-item {
-      margin-bottom: 8px;
-      font-size: 10.5pt;
-    }
-    .checked {
-      color: #059669;
-      font-weight: bold;
-    }
-    .pending {
-      color: #d97706;
-      font-weight: bold;
-    }
-    .footer {
-      font-size: 9pt;
-      color: #94a3b8;
-      margin-top: 50px;
-      border-top: 1px solid #e2e8f0;
-      padding-top: 15px;
-      text-align: center;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>KYC Compliance Report - ${escCompanyName}</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #1e293b; background-color: #f8fafc; padding: 40px; margin: 0; }
+        .container { max-width: 850px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        h1 { color: #0f172a; margin-top: 0; font-size: 24px; border-bottom: 2px solid #cbd5e1; padding-bottom: 12px; text-align: left; }
+        .badge { display: inline-block; padding: 6px 12px; border-radius: 9999px; font-weight: bold; font-size: 14px; margin-bottom: 20px; }
+        .badge-success { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+        .badge-error { background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+        .card { background-color: #f1f5f9; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 20px; text-align: left; }
+        .card h3 { margin-top: 0; color: #334155; font-size: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 12px; }
+        ul { padding-left: 20px; text-align: left; }
+        li { margin-bottom: 8px; }
+        .footer { text-align: center; margin-top: 40px; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 20px; }
+    </style>
 </head>
 <body>
-  <div class="header">
-    <h1>HUBOO &ndash; CLIENT ONBOARDING QUESTIONNAIRE</h1>
-    <div class="subtitle">ZERO-TOLERANCE CORPORATE SECURITY PROTOCOL</div>
-  </div>
+    <div class="container">
+        <h1>KYC Compliance Audit Report</h1>
+        <div class="badge ${data.isCompliant ? 'badge-success' : 'badge-error'}">
+            Compliance Status: ${isCompliantText}
+        </div>
+        
+        <div class="grid">
+            <div class="card">
+                <h3>1. Counterparty General Information</h3>
+                <p><strong>Contact/Client:</strong> ${escClientName}</p>
+                <p><strong>Company Name:</strong> ${escCompanyName}</p>
+                <p><strong>Role / Title:</strong> ${escRole}</p>
+                <p><strong>Country / Jurisdiction:</strong> ${escCountry}</p>
+                <p><strong>Contact Info:</strong> ${escContactInfo}</p>
+            </div>
+            
+            <div class="card">
+                <h3>2. KYC Checklist Status</h3>
+                <p><strong>Legal Identity:</strong> ${data.kycChecklist?.identityEstablished ? '🟢 Verified' : '❌ Pending'}</p>
+                <p><strong>UBO Ownership:</strong> ${data.kycChecklist?.ownershipVerified ? '🟢 Verified' : '❌ Pending'}</p>
+                <p><strong>Business purpose:</strong> ${data.kycChecklist?.businessActivityDefined ? '🟢 Verified' : '❌ Pending'}</p>
+                <p><strong>Risk Assessment:</strong> ${data.kycChecklist?.riskAssessmentCompleted ? '🟢 Verified' : '❌ Pending'}</p>
+            </div>
+        </div>
 
-  <div class="status-container">
-    <div class="status-box ${data.isCompliant ? 'status-compliant' : 'status-breach'}">
-      <strong>COMPLIANCE STATUS: ${data.isCompliant ? 'COMPLIANT (APPROVED)' : 'BREACH DETECTED (RESTRICTED)'}</strong>
-      <br/><br/>
-      ${data.isCompliant 
-        ? 'This communication exchange fully respects the Corporate Zero Tolerance protocol. No unauthorized commercial discussions were detected prior to onboarding requirements.' 
-        : 'CRITICAL SECURITY BREACH: Substantive commercial topics (pricing, quotes, contracts) were discussed prior to establishing complete basic KYC validation.'}
+        ${questionnaireHtml}
+
+        <div class="card">
+            <h3>3. Summary of Commercial Topics Discussed</h3>
+            <p>${escCommercialDetails}</p>
+            <p><strong>Alert Severity Level:</strong> ${severityText}</p>
+        </div>
+
+        <div class="card">
+            <h3>4. Mandatory Regularization Next Steps</h3>
+            <ul>
+                ${(data.nextStepsRequired || []).map(step => `<li>${escapeHtml(step)}</li>`).join('')}
+            </ul>
+        </div>
+
+        <div class="card">
+            <h3>5. Conversation Summary</h3>
+            <p>${escSummary}</p>
+        </div>
+
+        ${taxIdHtml}
+
+        <div class="footer">
+            Automatically generated by KYC Compliance Automator - Corporate Zero-Tolerance Security Protocol.
+        </div>
     </div>
-  </div>
-
-  <h2>1. Counterparty General Information</h2>
-  <table>
-    <tr>
-      <th style="width: 30%;">Legal &amp; Trading Name</th>
-      <td><strong>${escCompanyName}</strong></td>
-    </tr>
-    <tr>
-      <th>Primary Contact / Representative</th>
-      <td>${escClientName}</td>
-    </tr>
-    <tr>
-      <th>Role / Title</th>
-      <td>${escRole}</td>
-    </tr>
-    <tr>
-      <th>Jurisdiction / Residence</th>
-      <td>${escCountry}</td>
-    </tr>
-    <tr>
-      <th>Contact Information</th>
-      <td>${escContactInfo}</td>
-    </tr>
-  </table>
-
-  <h2>2. Mandatory Onboarding Checklist</h2>
-  <div class="checklist-item">
-    <span class="${data.kycChecklist?.identityEstablished ? 'checked' : 'pending'}">
-      [${data.kycChecklist?.identityEstablished ? 'X' : ' '}]
-    </span> 
-    <strong>Legal Identity Established and Registered</strong> &mdash; ${data.kycChecklist?.identityEstablished ? 'VERIFIED' : 'PENDING'}
-  </div>
-  <div class="checklist-item">
-    <span class="${data.kycChecklist?.ownershipVerified ? 'checked' : 'pending'}">
-      [${data.kycChecklist?.ownershipVerified ? 'X' : ' '}]
-    </span> 
-    <strong>Ultimate Beneficial Owners (UBO) Verification Completed</strong> &mdash; ${data.kycChecklist?.ownershipVerified ? 'VERIFIED' : 'PENDING'}
-  </div>
-  <div class="checklist-item">
-    <span class="${data.kycChecklist?.businessActivityDefined ? 'checked' : 'pending'}">
-      [${data.kycChecklist?.businessActivityDefined ? 'X' : ' '}]
-    </span> 
-    <strong>Business Purpose and Activity Formally Defined</strong> &mdash; ${data.kycChecklist?.businessActivityDefined ? 'VERIFIED' : 'PENDING'}
-  </div>
-  <div class="checklist-item">
-    <span class="${data.kycChecklist?.riskAssessmentCompleted ? 'checked' : 'pending'}">
-      [${data.kycChecklist?.riskAssessmentCompleted ? 'X' : ' '}]
-    </span> 
-    <strong>Risk Profile Assessment Completed</strong> &mdash; ${data.kycChecklist?.riskAssessmentCompleted ? 'VERIFIED' : 'PENDING'}
-  </div>
-
-  <h2>3. Huboo Onboarding Questionnaire (20 Questions)</h2>
-  
-  <h3>Question 1: Name (primary contact / principal)</h3>
-  <blockquote>${q.q1_name}</blockquote>
-
-  <h3>Question 2: Source (how the client came to us; referrer)</h3>
-  <blockquote>${q.q2_source}</blockquote>
-
-  <h3>Question 3: Country / residence</h3>
-  <blockquote>${q.q3_country}</blockquote>
-
-  <h3>Question 4: Address and telephone number</h3>
-  <blockquote>${q.q4_address_phone}</blockquote>
-
-  <h3>Question 5: Name of company (legal and trading name)</h3>
-  <blockquote>${q.q5_company_name}</blockquote>
-
-  <h3>Question 6: Activity (what the business does; product categories)</h3>
-  <blockquote>${q.q6_activity}</blockquote>
-
-  <h3>Question 7: Companies House / statutory databases (registration number; checks completed)</h3>
-  <blockquote>${q.q7_statutory_db}</blockquote>
-
-  <h3>Question 8: Date of formation</h3>
-  <blockquote>${q.q8_formation_date}</blockquote>
-
-  <h3>Question 9: Years trading</h3>
-  <blockquote>${q.q9_years_trading}</blockquote>
-
-  <h3>Question 10: Shipping (volumes; markets; carriers)</h3>
-  <blockquote>${q.q10_shipping}</blockquote>
-
-  <h3>Question 11: Channel (D2C / B2B / marketplace)</h3>
-  <blockquote>${q.q11_channel}</blockquote>
-
-  <h3>Question 12: Goods in / source (where stock originates; inbound)</h3>
-  <blockquote>${q.q12_goods_in}</blockquote>
-
-  <h3>Question 13: Stock &amp; shipping (SKUs; storage; fulfilment profile)</h3>
-  <blockquote>${q.q13_stock_shipping}</blockquote>
-
-  <h3>Question 14: Average RRP (and average order value / weight)</h3>
-  <blockquote>${q.q14_average_rrp}</blockquote>
-
-  <h3>Question 15: Start date (target go-live)</h3>
-  <blockquote>${q.q15_start_date}</blockquote>
-
-  <h3>Question 16: KYC (ID and address for UBOs and directors; certified docs; screening)</h3>
-  <blockquote>${q.q16_kyc}</blockquote>
-
-  <h3>Question 17: Capital (funding position; investors; source of funds)</h3>
-  <blockquote>${q.q17_capital}</blockquote>
-
-  <h3>Question 18: Europe (EU operations; VAT registrations; markets)</h3>
-  <blockquote>${q.q18_europe}</blockquote>
-
-  <h3>Question 19: Pricing (agreed rate card; B2B charges)</h3>
-  <blockquote>${q.q19_pricing}</blockquote>
-
-  <h3>Question 20: Other (notes; special requirements; risks)</h3>
-  <blockquote>${q.q20_other}</blockquote>
-
-  <h2>4. Commercial Discussions Audit</h2>
-  <ul>
-    <li><strong>Commercial discussions detected?</strong> ${data.commercialDiscussionsDetected ? 'YES (VIOLATION)' : 'NO (COMPLIANCE APPROVED)'}</li>
-    <li><strong>Severity Level:</strong> <strong>${severityText}</strong></li>
-  </ul>
-  <h3>Details of Commercial Topics Discussed:</h3>
-  <blockquote>${escCommercialDetails}</blockquote>
-
-  <h2>5. Required Actions &amp; Next Steps</h2>
-  <ul>
-    ${(data.nextStepsRequired || []).map(step => `<li><strong>${escapeHtml(step)}</strong></li>`).join('')}
-  </ul>
-
-  <h2>6. Conversation Summary</h2>
-  <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 6px; font-size: 10pt; color: #475569;">
-    ${escSummary}
-  </div>
-
-  <div class="footer">
-    <p><em>This document was automatically compiled and uploaded by the Huboo KYC Compliance Automator.</em></p>
-    <p><strong>Confidentiality Notice: INTERNAL COMPLIANCE RECORD ONLY. DO NOT DISTRIBUTE EXTERNALLY.</strong></p>
-  </div>
 </body>
 </html>`;
 
@@ -573,7 +450,7 @@ _Confidentiality Notice: INTERNAL COMPLIANCE RECORD ONLY. DO NOT DISTRIBUTE EXTE
   const docData = await createDocRes.json();
   const documentId = docData.id;
   
-  const docUrl = `https://docs.google.com/document/d/${documentId}/edit`;
+  const docUrl = `https://drive.google.com/file/d/${documentId}/view`;
   const folderUrl = folderId ? `https://drive.google.com/drive/folders/${folderId}` : 'https://drive.google.com';
   
   return {
@@ -658,8 +535,8 @@ export async function createAdditionalNote(
   try {
     const boundary = '314159265358979323846';
     const metadata = {
-      name: title,
-      mimeType: 'application/vnd.google-apps.document',
+      name: title.endsWith('.html') ? title : `${title}.html`,
+      mimeType: 'text/html',
       parents: [folderId],
     };
 
@@ -677,10 +554,13 @@ export async function createAdditionalNote(
 <html>
 <head>
   <meta charset="utf-8">
+  <title>${escapeHtml(title)}</title>
 </head>
-<body style="font-family: Arial, sans-serif; color: #334155; line-height: 1.6; font-size: 11pt;">
-  <h2 style="color: #1e3a8a; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px; margin-bottom: 15px;">${escapeHtml(title)}</h2>
-  <div style="white-space: pre-wrap; background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 6px;">${escapeHtml(content)}</div>
+<body style="font-family: Arial, sans-serif; color: #334155; line-height: 1.6; font-size: 11pt; padding: 30px; background-color: #f8fafc;">
+  <div style="max-width: 800px; margin: 0 auto; background-color: #ffffff; padding: 30px; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+    <h2 style="color: #1e3a8a; border-bottom: 2px solid #cbd5e1; padding-bottom: 8px; margin-top: 0; margin-bottom: 20px; font-size: 18pt;">${escapeHtml(title)}</h2>
+    <div style="white-space: pre-wrap; background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 6px; color: #334155; font-size: 11pt; line-height: 1.6;">${escapeHtml(content)}</div>
+  </div>
 </body>
 </html>`;
 
@@ -712,7 +592,7 @@ export async function createAdditionalNote(
 
     return {
       id: documentId,
-      webViewLink: `https://docs.google.com/document/d/${documentId}/edit`,
+      webViewLink: `https://drive.google.com/file/d/${documentId}/view`,
     };
   } catch (err: any) {
     console.error('Error creating additional note:', err);

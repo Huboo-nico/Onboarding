@@ -556,7 +556,7 @@ export default function App() {
     }
   };
 
-  // Create Google Doc
+  // Create HTML Report in Google Drive
   const handleExportToGoogleDoc = async (resultToExport?: KYCAnalysisResult) => {
     const targetResult = resultToExport || currentResult;
     if (!oauthToken || !targetResult) return;
@@ -584,8 +584,8 @@ export default function App() {
       // Refresh the visual directory listing
       await fetchDriveFolders(oauthToken);
     } catch (err: any) {
-      console.error('Google Docs export error:', err);
-      setExportError('Failed to export to Google Docs: ' + (err.message || err));
+      console.error('Google Drive HTML export error:', err);
+      setExportError('Failed to export HTML Report to Google Drive: ' + (err.message || err));
     } finally {
       setExportingDoc(false);
     }
@@ -1689,12 +1689,12 @@ export default function App() {
                         {exportingDoc ? (
                           <>
                             <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                            Generating Google Doc...
+                            Uploading HTML Report...
                           </>
                         ) : (
                           <>
                             <PlusCircle className="w-3.5 h-3.5" />
-                            Export to Google Docs
+                            Export HTML Report to Drive
                           </>
                         )}
                       </button>
@@ -1702,7 +1702,7 @@ export default function App() {
                       <button
                         onClick={handleGoogleLogin}
                         className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase tracking-wider py-2.5 px-4 rounded border border-slate-200 flex items-center gap-2 transition cursor-pointer"
-                        title="Log in with Google to enable Google Docs export"
+                        title="Log in with Google to enable Google Drive export"
                       >
                         <Lock className="w-3.5 h-3.5 text-slate-400" />
                         Connect Google Workspace to Export
@@ -1750,7 +1750,7 @@ export default function App() {
                             rel="noopener noreferrer"
                             className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] uppercase tracking-wider py-1.5 px-3 rounded flex items-center gap-1.5 transition whitespace-nowrap justify-center flex-1 sm:flex-none cursor-pointer"
                           >
-                            Open Google Doc
+                            Open HTML Report
                             <ExternalLink className="w-3 h-3" />
                           </a>
                         </div>
@@ -1964,7 +1964,7 @@ export default function App() {
                                   <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex flex-col gap-2.5 animate-fadeIn">
                                     <div className="flex justify-between items-center">
                                       <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider font-mono">
-                                        New Memo in Google Docs
+                                        New Memo in Google Drive
                                       </span>
                                       <button
                                         type="button"
