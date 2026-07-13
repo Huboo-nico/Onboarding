@@ -39,8 +39,8 @@ export async function createKYCDocument(
   token: string,
   data: KYCAnalysisResult
 ): Promise<{ docUrl: string; folderUrl: string; folderName: string; folderId?: string; documentId?: string }> {
-  const companyName = (data.companyName || 'Empresa').trim();
-  const clientName = (data.clientName || 'Cliente').trim();
+  const companyName = (data.companyName || 'Company').trim();
+  const clientName = (data.clientName || 'Client').trim();
   
   // 1. Search for an existing folder with the company name
   let folderId = '';
@@ -65,7 +65,7 @@ export async function createKYCDocument(
       }
     }
   } catch (searchErr) {
-    console.error('Error al buscar la carpeta de la empresa:', searchErr);
+    console.error('Error searching for company folder:', searchErr);
   }
   
   // 2. If folder doesn't exist, create it
@@ -88,10 +88,10 @@ export async function createKYCDocument(
         folderId = folderData.id;
       } else {
         const err = await createFolderRes.json().catch(() => ({}));
-        console.error('Error al crear la carpeta en Drive:', err);
+        console.error('Error creating folder in Drive:', err);
       }
     } catch (createErr) {
-      console.error('Error de red al crear carpeta:', createErr);
+      console.error('Network error creating folder:', createErr);
     }
   }
   
@@ -287,7 +287,7 @@ _Confidentiality Notice: INTERNAL COMPLIANCE RECORD ONLY. DO NOT DISTRIBUTE EXTE
 
   if (!createDocRes.ok) {
     const err = await createDocRes.json().catch(() => ({}));
-    throw new Error(err.error?.message || 'Error al crear el documento en Google Drive.');
+    throw new Error(err.error?.message || 'Error creating document in Google Drive.');
   }
 
   const docData = await createDocRes.json();
@@ -403,7 +403,7 @@ export async function createAdditionalNote(
 
     if (!createRes.ok) {
       const err = await createRes.json().catch(() => ({}));
-      throw new Error(err.error?.message || 'Error al crear el documento de nota.');
+      throw new Error(err.error?.message || 'Error creating note document.');
     }
 
     const docData = await createRes.json();

@@ -83,7 +83,7 @@ function getGeminiClient(customKey1?: string, useKeyIndex: 1 | 2 = 1, customKey2
 
   if (!apiKey) {
     throw new Error(
-      "Falta la clave de API de Gemini. Por favor, asegúrate de añadir GEMINI_API_KEY en Vercel (Settings > Environment Variables) o ingresa tu clave manualmente en el panel de control de la app."
+      "Missing Gemini API Key. Please make sure to add GEMINI_API_KEY in Vercel (Settings > Environment Variables) or enter your key manually in the app control panel."
     );
   }
   
@@ -106,8 +106,8 @@ function getGeminiClient(customKey1?: string, useKeyIndex: 1 | 2 = 1, customKey2
       }
     });
   } catch (err: any) {
-    console.error("[Gemini SDK] Error al inicializar GoogleGenAI:", err);
-    throw new Error(`Error de inicialización de la IA de Gemini: ${err.message || err}`);
+    console.error("[Gemini SDK] Error initializing GoogleGenAI:", err);
+    throw new Error(`Gemini AI initialization error: ${err.message || err}`);
   }
 }
 
@@ -208,19 +208,19 @@ app.post("/api/test-key", async (req, res) => {
       return res.json({
         success: true,
         model: modelUsed,
-        message: "¡Conexión exitosa con la API de Gemini!"
+        message: "Successful connection with Gemini API!"
       });
     } else {
       return res.status(400).json({
         success: false,
-        error: rawError || "Error desconocido al intentar conectar con Gemini."
+        error: rawError || "Unknown error trying to connect to Gemini."
       });
     }
   } catch (error: any) {
-    console.error("Error en endpoint /api/test-key:", error);
+    console.error("Error in endpoint /api/test-key:", error);
     res.status(500).json({
       success: false,
-      error: error.message || "Error al inicializar el cliente de Gemini o procesar la prueba."
+      error: error.message || "Error initializing Gemini client or processing test."
     });
   }
 });
@@ -230,7 +230,7 @@ app.post("/api/analyze", async (req, res) => {
   try {
     const { transcript } = req.body;
     if (!transcript || typeof transcript !== "string") {
-      return res.status(400).json({ error: "El contenido de la conversación es requerido." });
+      return res.status(400).json({ error: "Conversation transcript is required." });
     }
 
     const customKey = req.headers['x-gemini-key'] as string;
@@ -305,10 +305,10 @@ Your role:
 
       for (const modelName of modelsToTry) {
         try {
-          console.log(`[Gemini API] Intentando análisis estructurado con modelo: ${modelName}`);
+          console.log(`[Gemini API] Attempting structured analysis with model: ${modelName}`);
           const response = await clientInstance.models.generateContent({
             model: modelName,
-            contents: `Analiza la siguiente conversación/transcripción de llamada:
+            contents: `Analyze the following call transcript:
 "${transcript}"`,
             config: {
               systemInstruction,
@@ -447,18 +447,18 @@ Your role:
     // Helper to format friendly error outputs
     const formatFriendlyError = (err: any) => {
       const errMsg = err?.message || "";
-      let friendlyError = "No se pudo procesar la llamada con la IA de Gemini.";
+      let friendlyError = "Could not process call with Gemini AI.";
 
       if (errMsg.includes("API_KEY_INVALID") || errMsg.includes("API key not valid")) {
-        friendlyError = "La API Key de Gemini ingresada NO es válida. Por favor, asegúrate de haberla copiado completa, sin comillas ni espacios adicionales.";
+        friendlyError = "The provided Gemini API Key is NOT valid. Please ensure it has been copied fully, with no outer quotes or spaces.";
       } else if (errMsg.includes("quota") || errMsg.includes("quota exceeded") || errMsg.includes("429") || errMsg.includes("RESOURCE_EXHAUSTED")) {
-        friendlyError = "Límite de cuota excedido para tu API Key de Gemini. Si es una clave gratuita, tiene un límite estricto de solicitudes por minuto. Por favor, espera un minuto o configura una clave secundaria.";
+        friendlyError = "Quota limit exceeded for your Gemini API Key. Free tier keys have strict limits per minute. Please wait a minute or set up a backup key.";
       } else if (errMsg.includes("block") || errMsg.includes("permission") || errMsg.includes("PERMISSION_DENIED")) {
-        friendlyError = "Acceso denegado. Es posible que tu API Key no tenga los permisos necesarios o esté restringida para ciertos modelos o regiones.";
+        friendlyError = "Access denied. Your API Key may lack permissions or be restricted for certain models or regions.";
       } else if (errMsg.includes("not found") || errMsg.includes("not_found")) {
-        friendlyError = "Modelo no encontrado o no disponible para esta API Key. Asegúrate de usar una clave que tenga acceso a la API de Gemini.";
+        friendlyError = "Model not found or not available for this API Key. Ensure you are using a key that has access to the Gemini API.";
       } else {
-        friendlyError = `Error de la API de Gemini: ${errMsg}`;
+        friendlyError = `Gemini API Error: ${errMsg}`;
       }
       return friendlyError;
     };
@@ -736,8 +736,8 @@ You must return a flat JSON object adhering exactly to this structure (with all 
 
     res.json(result);
   } catch (error: any) {
-    console.error("Error en la llamada a Gemini:", error);
-    res.status(500).json({ error: error.message || "Error al procesar la transcripción con Inteligencia Artificial." });
+    console.error("Error in call to Gemini:", error);
+    res.status(500).json({ error: error.message || "Error processing call transcript with Artificial Intelligence." });
   }
 });
 

@@ -50,13 +50,13 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
     const result = await signInWithPopup(auth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     if (!credential?.accessToken) {
-      throw new Error('No se pudo obtener el token de acceso de Google.');
+      throw new Error('Failed to obtain Google access token.');
     }
 
     cachedAccessToken = credential.accessToken;
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (error: any) {
-    console.error('Error de autenticación Google:', error);
+    console.error('Google authentication error:', error);
     throw error;
   } finally {
     isSigningIn = false;

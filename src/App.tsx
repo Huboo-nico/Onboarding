@@ -111,14 +111,14 @@ export default function App() {
         data = await response.json();
       } else {
         const text = await response.text();
-        throw new Error(text || `El servidor devolvió un error de texto plano con código ${response.status}`);
+        throw new Error(text || `The server returned a plain text error with code ${response.status}`);
       }
 
       if (response.ok && data.success) {
         setConnectionResult({
           success: true,
           model: data.model,
-          message: data.message || `Conexión exitosa con la Clave ${keyIndex} de Gemini.`,
+          message: data.message || `Successful connection with Gemini Key ${keyIndex}.`,
         });
         if (keyIndex === 1) {
           setHasGeminiKey(true);
@@ -128,15 +128,15 @@ export default function App() {
       } else {
         setConnectionResult({
           success: false,
-          error: data.error || `Error de autenticación o conexión con la Clave ${keyIndex}.`,
+          error: data.error || `Authentication or connection error with Key ${keyIndex}.`,
         });
       }
     } catch (err: any) {
       console.error('Error testing Gemini key:', err);
       // Clean up common server errors to make them highly friendly
-      let errorMsg = err.message || 'Error de red o comunicación con el servidor.';
+      let errorMsg = err.message || 'Network error or communication error with the server.';
       if (errorMsg.includes('A server error')) {
-        errorMsg = 'Error en el servidor de Vercel. Asegúrate de que las dependencias estén bien construidas y que el backend de Node/Vercel no esté experimentando un bloqueo temporal.';
+        errorMsg = 'Vercel server error. Make sure dependencies are built correctly and that the Node/Vercel backend is not experiencing a temporary lock.';
       }
       setConnectionResult({
         success: false,
@@ -245,13 +245,13 @@ export default function App() {
           if (res.ok) {
             const data = await res.json();
             setGoogleUser({
-              displayName: data.name || data.given_name || 'Usuario Google',
+              displayName: data.name || data.given_name || 'Google User',
               email: data.email || '',
               photoURL: data.picture || null,
             } as any);
           } else {
             setGoogleUser({
-              displayName: 'Usuario Google Conectado',
+              displayName: 'Connected Google User',
               email: '',
               photoURL: null,
             } as any);
@@ -259,13 +259,15 @@ export default function App() {
         } catch (e) {
           console.error('Error fetching Google user info:', e);
           setGoogleUser({
-            displayName: 'Usuario Google Conectado',
+            displayName: 'Connected Google User',
             email: '',
             photoURL: null,
           } as any);
         }
+      } else if (event.data?.type === 'GOOGLE_OAUTH_SUCCESS' && event.data?.token) {
+        // do nothing
       } else if (event.data?.type === 'GOOGLE_OAUTH_FAILURE') {
-        setExportError('Fallo al conectar con Google: ' + (event.data.error || 'Acceso denegado'));
+        setExportError('Failed to connect to Google: ' + (event.data.error || 'Access denied'));
       }
     };
 
@@ -308,11 +310,11 @@ export default function App() {
   // Create an additional note/annex inside a folder
   const handleCreateNote = async () => {
     if (!oauthToken || !activeFolderId) {
-      alert('Error: No hay una carpeta activa seleccionada.');
+      alert('Error: No active folder selected.');
       return;
     }
     if (!newNoteTitle.trim() || !newNoteContent.trim()) {
-      alert('Por favor, ingresa el título y contenido de la nota compliance.');
+      alert('Please enter the title and content of the compliance note.');
       return;
     }
 
@@ -320,7 +322,7 @@ export default function App() {
     setNoteSuccessMessage(null);
     try {
       const noteTitleWithApp = `${newNoteTitle.trim()} - Compliance Memo`;
-      const contentWithHeading = `${newNoteTitle.trim()}\n===================\nFecha: ${new Date().toLocaleString()}\n\n${newNoteContent.trim()}`;
+      const contentWithHeading = `${newNoteTitle.trim()}\n===================\nDate: ${new Date().toLocaleString()}\n\n${newNoteContent.trim()}`;
       
       await createAdditionalNote(
         oauthToken,
@@ -329,7 +331,7 @@ export default function App() {
         contentWithHeading
       );
       
-      setNoteSuccessMessage('¡Nota de compliance guardada con éxito en Google Drive!');
+      setNoteSuccessMessage('Compliance note successfully saved in Google Drive!');
       setNewNoteTitle('');
       setNewNoteContent('');
       setShowNoteForm(false);
@@ -341,7 +343,7 @@ export default function App() {
       setTimeout(() => setNoteSuccessMessage(null), 5000);
     } catch (err: any) {
       console.error('Error creating compliance note:', err);
-      alert('No se pudo crear la nota en Drive: ' + (err.message || err));
+      alert('Could not create compliance note in Drive: ' + (err.message || err));
     } finally {
       setIsSavingNote(false);
     }
@@ -382,9 +384,9 @@ export default function App() {
         googleSignInDirect(customGoogleClientId || undefined);
       } catch (err: any) {
         if (err.message === 'POPUP_BLOCKED') {
-          setExportError('El navegador bloqueó la ventana emergente de inicio de sesión. Por favor, permite ventanas emergentes para este sitio.');
+          setExportError('The browser blocked the login popup window. Please allow popups for this site.');
         } else {
-          setExportError('Error al iniciar Google Sign-In directo: ' + err.message);
+          setExportError('Error initiating direct Google Sign-In: ' + err.message);
         }
         setIsLoggingIn(false);
       }
@@ -399,14 +401,14 @@ export default function App() {
       }
     } catch (err: any) {
       if (err.message === 'CONFIG_REQUIRED') {
-        alert('Configuración Requerida: Para conectar Google Workspace, primero debes aceptar la ventana flotante de Google OAuth (ver la tarjeta debajo del chat). Mientras tanto, puedes usar la aplicación de forma local.');
+        alert('Configuration Required: To connect Google Workspace, you must first accept the Google OAuth setup window (see the card below the chat). In the meantime, you can continue using the application locally.');
       } else {
         // Fallback to direct sign-in if Firebase popup fails!
         console.warn('Firebase login failed, trying Direct Google OAuth fallback:', err);
         try {
           googleSignInDirect();
         } catch (fallbackErr: any) {
-          setExportError('Fallo al conectar con Google: ' + err.message);
+          setExportError('Failed to connect with Google: ' + err.message);
         }
       }
     } finally {
@@ -436,7 +438,7 @@ export default function App() {
   // Analyze transcript with server-side Gemini API
   const handleAnalyze = async () => {
     if (!transcript.trim()) {
-      setError('Por favor, escribe o pega la transcripción de la llamada antes de realizar el análisis.');
+      setError('Please type or paste the call transcript before performing the analysis.');
       return;
     }
 
@@ -461,7 +463,7 @@ export default function App() {
       });
 
       if (!response.ok) {
-        let errorMessage = 'No se pudo comunicar con el servidor de análisis.';
+        let errorMessage = 'Failed to communicate with the analysis server.';
         try {
           const errText = await response.text();
           try {
@@ -472,15 +474,15 @@ export default function App() {
           } catch (jsonErr) {
             // Response was not JSON (e.g. Vercel serverless function crash returning HTML)
             if (response.status === 500 || response.status === 502 || response.status === 504) {
-              errorMessage = `Error del servidor de Vercel (Estado ${response.status}). Esto ocurre usualmente si no has configurado la variable de entorno GEMINI_API_KEY en tu panel de Vercel. Por favor, asegúrate de añadir GEMINI_API_KEY en Vercel > Settings > Environment Variables.`;
+              errorMessage = `Vercel Server Error (Status ${response.status}). This usually occurs if you have not configured the GEMINI_API_KEY environment variable in your Vercel panel. Please make sure to add GEMINI_API_KEY in Vercel > Settings > Environment Variables.`;
             } else if (errText && errText.length < 200) {
-              errorMessage = `Error del servidor (${response.status}): ${errText}`;
+              errorMessage = `Server Error (${response.status}): ${errText}`;
             } else {
-              errorMessage = `Error de comunicación (${response.status}). Es probable que falte configurar GEMINI_API_KEY en las variables de entorno de tu proyecto en Vercel.`;
+              errorMessage = `Communication Error (${response.status}). You likely need to configure GEMINI_API_KEY in your Vercel environment variables.`;
             }
           }
         } catch (readErr) {
-          errorMessage = `No se pudo conectar con el servidor (Estado ${response.status}).`;
+          errorMessage = `Could not connect to the server (Status ${response.status}).`;
         }
         throw new Error(errorMessage);
       }
@@ -498,7 +500,7 @@ export default function App() {
 
     } catch (err: any) {
       console.error('Analysis error:', err);
-      setError(err.message || 'Error al procesar la transcripción con Inteligencia Artificial.');
+      setError(err.message || 'Error processing the transcript with Artificial Intelligence.');
     } finally {
       setIsLoading(false);
     }
@@ -509,7 +511,7 @@ export default function App() {
     const newRecord: ClientRecord = {
       ...record,
       id: Math.random().toString(36).substr(2, 9),
-      analyzedAt: new Date().toLocaleString('es-ES', {
+      analyzedAt: new Date().toLocaleString('en-US', {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
@@ -540,7 +542,7 @@ export default function App() {
   // Delete a record from history
   const deleteRecord = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    const confirmed = window.confirm('¿Está seguro de que desea eliminar este cliente del registro local?');
+    const confirmed = window.confirm('Are you sure you want to delete this client from the local history?');
     if (!confirmed) return;
 
     setClients(prev => {
@@ -583,7 +585,7 @@ export default function App() {
       await fetchDriveFolders(oauthToken);
     } catch (err: any) {
       console.error('Google Docs export error:', err);
-      setExportError('Fallo al exportar a Google Docs: ' + (err.message || err));
+      setExportError('Failed to export to Google Docs: ' + (err.message || err));
     } finally {
       setExportingDoc(false);
     }
@@ -606,7 +608,10 @@ export default function App() {
         s.toLowerCase() === 'unknown' || 
         s.toLowerCase() === 'n/a' ||
         s === '(no me lo ha contestado)' ||
-        s.toLowerCase() === '(no me lo ha contestado)'
+        s.toLowerCase() === '(no me lo ha contestado)' ||
+        s === '(not answered)' ||
+        s.toLowerCase() === '(not answered)' ||
+        s.toLowerCase() === '(not answered / not provided)'
       ) {
         return fallback;
       }
@@ -674,7 +679,7 @@ export default function App() {
                   const answerStyle = isUnanswered ? 'font-style: italic;' : '';
                   return `
                     <div style="border-bottom: 1px dashed #e2e8f0; padding-bottom: 12px;">
-                        <span style="font-size: 11px; font-weight: bold; color: #64748b; font-family: monospace;">PREGUNTA ${field.num}</span>
+                        <span style="font-size: 11px; font-weight: bold; color: #64748b; font-family: monospace;">QUESTION ${field.num}</span>
                         <strong style="display: block; font-size: 13px; color: #334155; margin-bottom: 4px;">${field.label}</strong>
                         <div style="background-color: ${answerBg}; color: ${answerColor}; ${answerStyle} padding: 10px; border-radius: 4px; font-size: 13px; border-left: 3px solid ${isUnanswered ? '#f59e0b' : '#3b82f6'};">
                             ${val}
@@ -797,7 +802,7 @@ export default function App() {
           <h1 className="text-xl font-bold tracking-tight uppercase font-display flex items-center gap-2.5">
             KYC Compliance Automator
             <span className="text-[10px] bg-red-950 text-red-400 font-mono px-2 py-0.5 rounded border border-red-800 font-semibold uppercase tracking-wider">
-              Tolerancia Cero
+              Zero Tolerance
             </span>
           </h1>
           <p className="text-xs text-slate-400 font-mono mt-0.5">ZERO-TOLERANCE POLICY: KYC COMPLETION MANDATORY BEFORE COMMERCIALS</p>
@@ -820,14 +825,14 @@ export default function App() {
                     {googleUser.displayName ? googleUser.displayName.charAt(0) : 'U'}
                   </div>
                   <div className="text-left hidden md:block">
-                    <p className="text-[10px] font-semibold text-white leading-3">Conectado</p>
+                    <p className="text-[10px] font-semibold text-white leading-3">Connected</p>
                     <p className="text-[9px] text-slate-300 leading-none mt-0.5">{googleUser.email}</p>
                   </div>
                 </div>
                 <button 
                   onClick={handleLogout}
                   className="text-slate-400 hover:text-red-400 p-1 rounded hover:bg-slate-700 transition"
-                  title="Cerrar Sesión Google"
+                  title="Sign Out Google"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
@@ -842,7 +847,7 @@ export default function App() {
                   className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[11px] py-1 px-2.5 rounded flex items-center gap-1 transition disabled:opacity-50 cursor-pointer"
                 >
                   <Lock className="w-3 h-3" />
-                  {isLoggingIn ? 'Conectando...' : 'Conectar Drive'}
+                  {isLoggingIn ? 'Connecting...' : 'Connect Drive'}
                 </button>
               </div>
             )}
@@ -853,44 +858,44 @@ export default function App() {
       {/* Main Container */}
       <main className="flex-1 w-full max-w-7xl mx-auto px-6 py-6 md:py-8 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        {/* COLUMNA IZQUIERDA: Entrada de Transcripciones y Configuración */}
+        {/* LEFT COLUMN: Transcript Input & Configuration */}
         <section id="input-section" className="lg:col-span-5 flex flex-col gap-6">
           
-          {/* Instrucciones de la Política */}
+          {/* Policy Instructions */}
           <div className="bg-white border-t-4 border-red-600 p-5 rounded shadow-sm border-x border-b border-slate-200 relative overflow-hidden">
             <div className="absolute right-0 top-0 w-24 h-24 bg-gradient-to-br from-red-500/5 to-amber-500/5 rounded-full blur-2xl"></div>
             <h2 className="font-display font-semibold text-xs tracking-wider text-red-600 uppercase flex items-center gap-2 mb-2.5">
               <ShieldAlert className="w-4 h-4 text-red-600" />
-              PROTOCOLO DE CERO TOLERANCIA
+              ZERO-TOLERANCE PROTOCOL
             </h2>
             <p className="text-xs text-slate-600 leading-relaxed mb-3">
-              No se permite bajo ningún concepto entablar conversaciones comerciales, cotizar tarifas o redactar borradores contractuales con contrapartes sin antes completar en su totalidad el <strong className="text-slate-900">Checklist de KYC básico</strong>.
+              Under no circumstances is it permitted to engage in commercial discussions, quote rates, or draft contracts with counterparties without first fully completing the <strong className="text-slate-900">Basic KYC Checklist</strong>.
             </p>
             <div className="border-t border-slate-100 pt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-slate-500 font-mono">
-              <span className="flex items-center gap-1 text-emerald-600">🟢 Autorizado: Pedir documentación</span>
-              <span className="flex items-center gap-1 text-red-600">🔴 Prohibido: Discutir precios</span>
+              <span className="flex items-center gap-1 text-emerald-600">🟢 Authorized: Request documentation</span>
+              <span className="flex items-center gap-1 text-red-600">🔴 Forbidden: Discuss prices</span>
             </div>
           </div>
 
-          {/* Caja de Análisis de Transcripción */}
+          {/* Transcript Analysis Box */}
           <div className="bg-white p-6 rounded border border-slate-200 shadow-sm flex flex-col gap-4">
             <div className="flex justify-between items-center">
               <h2 className="font-display font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-slate-500" />
-                Ingresar Conversación
+                Input Conversation
               </h2>
               {transcript && (
                 <button 
                   onClick={() => { setTranscript(''); setError(null); setCurrentResult(null); }}
                   className="text-slate-400 hover:text-slate-600 text-xs font-semibold uppercase tracking-wider font-mono"
                 >
-                  Limpiar
+                  Clear
                 </button>
               )}
             </div>
 
             <p className="text-xs text-slate-500 -mt-2">
-              Pegue la transcripción del chat, llamada o correo electrónico que mantuviste con la contraparte para analizar el cumplimiento del protocolo.
+              Paste the transcript of the chat, call, or email you had with the counterparty to analyze compliance with the protocol.
             </p>
 
             <textarea
@@ -909,15 +914,15 @@ export default function App() {
                 </div>
                 {error.includes('GEMINI_API_KEY') && (
                   <div className="text-[11px] bg-white/70 p-3 rounded border border-red-100 flex flex-col gap-1.5 text-slate-700 font-sans mt-0.5">
-                    <div className="font-bold text-red-900">Pasos para solucionar el error de API en Vercel:</div>
+                    <div className="font-bold text-red-900">Steps to resolve the API error in Vercel:</div>
                     <ol className="list-decimal pl-4 flex flex-col gap-1.5 text-slate-600">
-                      <li>Abre el panel de tu proyecto en <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-semibold">Vercel</a>.</li>
-                      <li>Ve a la pestaña <strong>Settings</strong> (Ajustes) en la parte superior.</li>
-                      <li>Haz clic en la sección <strong>Environment Variables</strong> (Variables de entorno) a la izquierda.</li>
-                      <li>Crea una nueva variable con la clave: <code className="bg-slate-200 px-1 py-0.5 rounded text-red-600 font-mono font-bold select-all">GEMINI_API_KEY</code></li>
-                      <li>Pega el valor de tu API Key de Gemini en el campo de valor.</li>
-                      <li>Haz clic en <strong>Save</strong> (Guardar) para guardarla.</li>
-                      <li><em>¡Importante!</em> Ve a la pestaña <strong>Deployments</strong> (Despliegues) de tu proyecto en Vercel, haz clic en los tres puntos de tu último despliegue y selecciona <strong>Redeploy</strong> (Redesplegar) para que los cambios surtan efecto.</li>
+                      <li>Open your project panel in <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-semibold">Vercel</a>.</li>
+                      <li>Go to the <strong>Settings</strong> tab at the top.</li>
+                      <li>Click on the <strong>Environment Variables</strong> section on the left.</li>
+                      <li>Create a new variable with the key: <code className="bg-slate-200 px-1 py-0.5 rounded text-red-600 font-mono font-bold select-all">GEMINI_API_KEY</code></li>
+                      <li>Paste your Gemini API Key value into the value field.</li>
+                      <li>Click <strong>Save</strong> to save it.</li>
+                      <li><em>Important!</em> Go to the <strong>Deployments</strong> tab of your project in Vercel, click on the three dots of your last deployment and select <strong>Redeploy</strong> to make the changes take effect.</li>
                     </ol>
                   </div>
                 )}
@@ -931,16 +936,16 @@ export default function App() {
                 <div className="flex justify-between items-center bg-white p-2 rounded border border-slate-100 shadow-xs">
                   <span className="font-semibold text-slate-700 flex items-center gap-1.5">
                     <span className={`w-2 h-2 rounded-full ${hasGeminiKey === null ? 'bg-amber-400 animate-pulse' : hasGeminiKey ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                    Clave Principal (Key 1): {hasGeminiKey === null ? 'Comprobando...' : hasGeminiKey ? '🟢 Detectada' : '🔴 NO Detectada'}
+                    Primary Key (Key 1): {hasGeminiKey === null ? 'Checking...' : hasGeminiKey ? '🟢 Detected' : '🔴 NOT Detected'}
                   </span>
                   <button
                     type="button"
                     onClick={() => testGeminiConnection(1)}
                     disabled={testingConnection}
                     className="text-indigo-600 hover:text-indigo-800 font-bold uppercase text-[9px] font-mono flex items-center gap-1 cursor-pointer disabled:opacity-50 px-2 py-1 bg-indigo-50 hover:bg-indigo-100 rounded transition"
-                    title="Probar conexión real de la Clave Principal"
+                    title="Test actual connection of the Primary Key"
                   >
-                    {testingConnectionKey === 1 ? 'Probando...' : 'Probar'}
+                    {testingConnectionKey === 1 ? 'Testing...' : 'Test'}
                   </button>
                 </div>
 
@@ -948,7 +953,7 @@ export default function App() {
                 <div className="flex justify-between items-center bg-white p-2 rounded border border-slate-100 shadow-xs">
                   <span className="font-semibold text-slate-700 flex items-center gap-1.5">
                     <span className={`w-2 h-2 rounded-full ${hasGeminiKey2 === null ? 'bg-amber-400 animate-pulse' : hasGeminiKey2 ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                    Clave Secundaria (Key 2): {hasGeminiKey2 === null ? 'Comprobando...' : hasGeminiKey2 ? '🟢 Detectada (Respaldo Activo)' : '⚪ No Configurada'}
+                    Secondary Key (Key 2): {hasGeminiKey2 === null ? 'Checking...' : hasGeminiKey2 ? '🟢 Detected (Active Backup)' : '⚪ Not Configured'}
                   </span>
                   <div className="flex items-center gap-1.5">
                     {hasGeminiKey2 && (
@@ -957,9 +962,9 @@ export default function App() {
                         onClick={() => testGeminiConnection(2)}
                         disabled={testingConnection}
                         className="text-indigo-600 hover:text-indigo-800 font-bold uppercase text-[9px] font-mono flex items-center gap-1 cursor-pointer disabled:opacity-50 px-2 py-1 bg-indigo-50 hover:bg-indigo-100 rounded transition"
-                        title="Probar conexión real de la Clave Secundaria"
+                        title="Test actual connection of the Secondary Key"
                       >
-                        {testingConnectionKey === 2 ? 'Probando...' : 'Probar'}
+                        {testingConnectionKey === 2 ? 'Testing...' : 'Test'}
                       </button>
                     )}
                     <button
@@ -967,10 +972,10 @@ export default function App() {
                       onClick={checkConfigStatus}
                       disabled={checkingConfig}
                       className="text-indigo-600 hover:text-indigo-800 font-bold uppercase text-[9px] font-mono flex items-center gap-1 cursor-pointer disabled:opacity-50 px-2 py-1 bg-indigo-50 hover:bg-indigo-100 rounded transition"
-                      title="Actualizar estado de configuración"
+                      title="Update configuration status"
                     >
                       <RefreshCw className={`w-2.5 h-2.5 ${checkingConfig ? 'animate-spin' : ''}`} />
-                      {checkingConfig ? '...' : 'Comprobar'}
+                      {checkingConfig ? '...' : 'Check'}
                     </button>
                   </div>
                 </div>
@@ -980,11 +985,11 @@ export default function App() {
               {connectionResult && (
                 <div className={`p-2.5 rounded text-[11px] leading-relaxed border animate-fadeIn ${connectionResult.success ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'}`}>
                   <div className="font-bold flex items-center gap-1 mb-0.5">
-                    {connectionResult.success ? '✓ ¡Conexión Exitosa!' : '✗ Error de Conexión'}
+                    {connectionResult.success ? '✓ Successful Connection!' : '✗ Connection Error'}
                   </div>
                   <p className="text-[10px] text-slate-700 font-sans">
                     {connectionResult.success 
-                      ? `${connectionResult.message} Modelo verificado: ${connectionResult.model}` 
+                      ? `${connectionResult.message} Verified model: ${connectionResult.model}` 
                       : connectionResult.error}
                   </p>
                 </div>
@@ -998,24 +1003,24 @@ export default function App() {
                   className="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 cursor-pointer text-left leading-tight"
                 >
                   <Key className="w-3 h-3 shrink-0" />
-                  {showCustomGeminiInput ? 'Ocultar ajuste de API Key manual' : '¿Quieres ingresar tu API Key de Gemini manualmente? (Alternativa rápida)'}
+                  {showCustomGeminiInput ? 'Hide manual API Key settings' : 'Want to enter your Gemini API Key manually? (Quick alternative)'}
                 </button>
                 
                 {showCustomGeminiInput && (
                   <div className="p-2.5 bg-white border border-indigo-100 rounded flex flex-col gap-3.5 mt-1 animate-fadeIn">
                     <p className="text-[10px] leading-relaxed text-slate-500">
-                      Si tienes problemas con las variables de entorno de Vercel, ingresa tus API Keys de Gemini aquí. Se guardarán de forma segura en tu navegador y se usarán de inmediato.
+                      If you have issues with Vercel environment variables, enter your Gemini API Keys here. They will be saved securely in your browser and used immediately.
                     </p>
                     
                     {/* Key 1 Input */}
                     <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Clave Principal (Key 1)</label>
+                      <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Primary Key (Key 1)</label>
                       <div className="flex gap-1.5">
                         <input
                           type="password"
                           value={customGeminiKey}
                           onChange={(e) => setCustomGeminiKey(e.target.value)}
-                          placeholder="AIzaSy... (Clave Principal)"
+                          placeholder="AIzaSy... (Primary Key)"
                           className="bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs text-slate-800 w-full focus:outline-none focus:border-indigo-500 font-mono"
                         />
                         <button
@@ -1023,16 +1028,16 @@ export default function App() {
                           onClick={() => {
                             const trimmed = customGeminiKey.trim();
                             if (!trimmed) {
-                              alert('Por favor, ingresa una clave válida.');
+                              alert('Please enter a valid key.');
                               return;
                             }
                             localStorage.setItem('custom_gemini_api_key', trimmed);
-                            alert('Clave Principal (Key 1) de Gemini guardada correctamente.');
+                            alert('Gemini Primary Key (Key 1) saved successfully.');
                             checkConfigStatus();
                           }}
                           className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] px-2.5 py-1 rounded transition cursor-pointer shrink-0"
                         >
-                          Guardar
+                          Save
                         </button>
                         {localStorage.getItem('custom_gemini_api_key') && (
                           <button
@@ -1040,12 +1045,12 @@ export default function App() {
                             onClick={() => {
                               localStorage.removeItem('custom_gemini_api_key');
                               setCustomGeminiKey('');
-                              alert('Se eliminó tu Clave Principal manual.');
+                              alert('Your manual Primary Key was deleted.');
                               checkConfigStatus();
                             }}
                             className="bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-semibold text-[10px] px-2 py-1 rounded transition cursor-pointer shrink-0"
                           >
-                            Borrar
+                            Delete
                           </button>
                         )}
                       </div>
@@ -1053,13 +1058,13 @@ export default function App() {
 
                     {/* Key 2 Input */}
                     <div className="flex flex-col gap-1 border-t border-slate-100 pt-2.5">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Clave Secundaria (Key 2 / Respaldo)</label>
+                      <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Secondary Key (Key 2 / Backup)</label>
                       <div className="flex gap-1.5">
                         <input
                           type="password"
                           value={customGeminiKey2}
                           onChange={(e) => setCustomGeminiKey2(e.target.value)}
-                          placeholder="AIzaSy... (Clave Secundaria)"
+                          placeholder="AIzaSy... (Secondary Key)"
                           className="bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs text-slate-800 w-full focus:outline-none focus:border-indigo-500 font-mono"
                         />
                         <button
@@ -1067,16 +1072,16 @@ export default function App() {
                           onClick={() => {
                             const trimmed = customGeminiKey2.trim();
                             if (!trimmed) {
-                              alert('Por favor, ingresa una clave de respaldo válida.');
+                              alert('Please enter a valid backup key.');
                               return;
                             }
                             localStorage.setItem('custom_gemini_api_key_2', trimmed);
-                            alert('Clave Secundaria (Key 2) de Gemini guardada correctamente.');
+                            alert('Gemini Secondary Key (Key 2) saved successfully.');
                             checkConfigStatus();
                           }}
                           className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] px-2.5 py-1 rounded transition cursor-pointer shrink-0"
                         >
-                          Guardar
+                          Save
                         </button>
                         {localStorage.getItem('custom_gemini_api_key_2') && (
                           <button
@@ -1084,12 +1089,12 @@ export default function App() {
                             onClick={() => {
                               localStorage.removeItem('custom_gemini_api_key_2');
                               setCustomGeminiKey2('');
-                              alert('Se eliminó tu Clave Secundaria manual.');
+                              alert('Your manual Secondary Key was deleted.');
                               checkConfigStatus();
                             }}
                             className="bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-semibold text-[10px] px-2 py-1 rounded transition cursor-pointer shrink-0"
                           >
-                            Borrar
+                            Delete
                           </button>
                         )}
                       </div>
@@ -1100,16 +1105,16 @@ export default function App() {
               
               {hasGeminiKey === false && (
                 <div className="text-[11px] text-slate-600 space-y-1.5 border-t border-slate-100 pt-2.5 animate-fadeIn">
-                  <p className="font-medium text-rose-700">⚠️ Vercel no ha cargado tu GEMINI_API_KEY todavía.</p>
+                  <p className="font-medium text-rose-700">⚠️ Vercel has not loaded your GEMINI_API_KEY yet.</p>
                   <p className="leading-relaxed">
-                    Si ya agregaste la variable en Vercel, el error ocurre porque <strong>Vercel requiere un nuevo despliegue (Redeploy)</strong> para aplicar variables nuevas. Las variables no se actualizan solas en despliegues existentes.
+                    If you already added the variable in Vercel, this error happens because <strong>Vercel requires a new deployment (Redeploy)</strong> to apply new variables. Variables do not update automatically on existing deployments.
                   </p>
                   <div className="bg-white p-2.5 rounded border border-rose-100 mt-1">
-                    <div className="font-bold text-slate-800 text-[10px] mb-1">Pasos para activar la clave de inmediato:</div>
+                    <div className="font-bold text-slate-800 text-[10px] mb-1">Steps to activate the key immediately:</div>
                     <ol className="list-decimal pl-4 text-[10px] space-y-1.5 text-slate-500">
-                      <li>Ve a tu proyecto en <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-semibold">Vercel</a> y entra a la pestaña <strong>Deployments</strong>.</li>
-                      <li>Busca tu último despliegue (el que está activo), haz clic en los <strong>tres puntos (...)</strong> de la derecha y selecciona <strong>Redeploy</strong>.</li>
-                      <li>Una vez que termine el despliegue (tarda unos 30 segundos), haz clic en el botón <strong>"Comprobar"</strong> de aquí arriba.</li>
+                      <li>Go to your project on <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-semibold">Vercel</a> and enter the <strong>Deployments</strong> tab.</li>
+                      <li>Find your last deployment (the active one), click on the <strong>three dots (...)</strong> on the right and select <strong>Redeploy</strong>.</li>
+                      <li>Once the deployment finishes (takes about 30 seconds), click on the <strong>"Check"</strong> button above.</li>
                     </ol>
                   </div>
                 </div>
@@ -1117,20 +1122,20 @@ export default function App() {
 
               {hasGeminiKey2 === false && (
                 <div className="text-[11px] text-slate-600 space-y-1.5 border-t border-slate-100 pt-2.5 animate-fadeIn">
-                  <p className="font-medium text-slate-700">⚪ Clave Secundaria (Key 2 / Respaldo) no configurada en Vercel.</p>
+                  <p className="font-medium text-slate-700">⚪ Secondary Key (Key 2 / Backup) not configured on Vercel.</p>
                   <p className="leading-relaxed">
-                    Se recomienda configurar <code className="bg-slate-200 px-1 py-0.5 rounded text-indigo-600 font-mono font-bold">GEMINI_API_KEY_2</code> como <strong>gemini-3.5-flash</strong> para actuar como respaldo automático contra límites de cuota (failover).
+                    We recommend configuring <code className="bg-slate-200 px-1 py-0.5 rounded text-indigo-600 font-mono font-bold">GEMINI_API_KEY_2</code> as <strong>gemini-3.5-flash</strong> to act as an automatic backup against quota limits (failover).
                   </p>
                   <div className="bg-white p-2.5 rounded border border-slate-100 mt-1">
-                    <div className="font-bold text-slate-800 text-[10px] mb-1">Pasos para configurar la API Key 2 en Vercel:</div>
+                    <div className="font-bold text-slate-800 text-[10px] mb-1">Steps to configure API Key 2 on Vercel:</div>
                     <ol className="list-decimal pl-4 text-[10px] space-y-1.5 text-slate-500">
-                      <li>Abre tu proyecto en <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-semibold">Vercel</a>.</li>
-                      <li>Ve a la pestaña <strong>Settings</strong> (Ajustes) en la parte superior.</li>
-                      <li>Haz clic en la sección <strong>Environment Variables</strong> (Variables de entorno) a la izquierda.</li>
-                      <li>Crea una nueva variable con la clave: <code className="bg-slate-200 px-1 py-0.5 rounded text-indigo-600 font-mono font-bold select-all">GEMINI_API_KEY_2</code></li>
-                      <li>Pega tu clave de API de Gemini de respaldo en el campo de valor.</li>
-                      <li>Haz clic en <strong>Save</strong> (Guardar).</li>
-                      <li><strong>¡Importante!</strong> Ve a la pestaña <strong>Deployments</strong>, haz clic en los <strong>tres puntos (...)</strong> de tu último despliegue y selecciona <strong>Redeploy</strong> (Redesplegar) para aplicar la nueva clave de respaldo.</li>
+                      <li>Open your project on <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-semibold">Vercel</a>.</li>
+                      <li>Go to the <strong>Settings</strong> tab at the top.</li>
+                      <li>Click on the <strong>Environment Variables</strong> section on the left.</li>
+                      <li>Create a new variable with the key: <code className="bg-slate-200 px-1 py-0.5 rounded text-indigo-600 font-mono font-bold select-all">GEMINI_API_KEY_2</code></li>
+                      <li>Paste your backup Gemini API key in the value field.</li>
+                      <li>Click <strong>Save</strong>.</li>
+                      <li><strong>Important!</strong> Go to the <strong>Deployments</strong> tab, click on the <strong>three dots (...)</strong> of your last deployment and select <strong>Redeploy</strong> to apply the new backup key.</li>
                     </ol>
                   </div>
                 </div>
@@ -1145,24 +1150,24 @@ export default function App() {
               {isLoading ? (
                 <>
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  Analizando Cumplimiento...
+                  Analyzing Compliance...
                 </>
               ) : (
                 <>
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  Verificar Compliance
+                  Verify Compliance
                 </>
               )}
             </button>
           </div>
 
-          {/* Casos de Prueba / Plantillas Rápidas */}
+          {/* Quick Test Cases / Templates */}
           <div className="bg-white p-6 rounded border border-slate-200 shadow-sm flex flex-col gap-3">
             <h3 className="font-display font-bold text-slate-800 text-xs uppercase tracking-wider">
-              Casos de Prueba Rápidos
+              Quick Test Cases
             </h3>
             <p className="text-xs text-slate-500 -mt-1">
-              Prueba al instante con estos casos pre-configurados que ilustran escenarios reales:
+              Test instantly with these pre-configured cases illustrating real scenarios:
             </p>
 
             <div className="flex flex-col gap-2 mt-1">
@@ -1181,7 +1186,7 @@ export default function App() {
                         ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
                         : 'bg-red-100 text-red-800 border border-red-200'
                     }`}>
-                      {tpl.expectedStatus === 'COMPLIANT' ? 'CONFORME' : 'BRECHA'}
+                      {tpl.expectedStatus === 'COMPLIANT' ? 'COMPLIANT' : 'BREACH'}
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">
@@ -1194,11 +1199,11 @@ export default function App() {
 
         </section>
 
-        {/* COLUMNA DERECHA: Visor de Diagnóstico de Cumplimiento (KYC & Alerts) */}
+        {/* RIGHT COLUMN: Compliance Diagnostic Viewer (KYC & Alerts) */}
         <section id="results-section" className="lg:col-span-7 flex flex-col gap-6">
           
           {!currentResult ? (
-            /* Estado Vacío de Espera: Commercial Gatekeeper Locked */
+            /* Empty Wait State: Commercial Gatekeeper Locked */
             <div className="bg-slate-100 rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-center p-8 py-14 relative overflow-hidden min-h-[550px] shadow-inner">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_0%,_rgba(0,0,0,0.02)_100%)]"></div>
               
@@ -1206,34 +1211,34 @@ export default function App() {
                 <div className="w-16 h-16 bg-slate-200 text-slate-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-sm">
                   <Lock className="w-8 h-8" />
                 </div>
-                <h3 className="text-sm font-bold text-slate-700 uppercase tracking-widest font-mono">Módulo Comercial Bloqueado</h3>
-                <h2 className="text-xl font-bold text-slate-900 mt-2 font-display">Esperando Análisis de Compliance</h2>
+                <h3 className="text-sm font-bold text-slate-700 uppercase tracking-widest font-mono">Commercial Module Locked</h3>
+                <h2 className="text-xl font-bold text-slate-900 mt-2 font-display">Awaiting Compliance Analysis</h2>
                 <p className="text-xs text-slate-500 mt-3 px-4 leading-relaxed">
-                  No se permite redactar ofertas, cotizar precios ni discutir términos contractuales hasta que el análisis de cumplimiento de la conversación de la contraparte sea ejecutado y aprobado.
+                  No drafting of offers, quoting prices, or discussing contract terms is permitted until the compliance analysis of the counterparty's conversation has been executed and approved.
                 </p>
                 
                 <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
                   <button disabled className="px-5 py-2 text-[11px] font-bold tracking-wider uppercase bg-slate-300 text-slate-500 rounded cursor-not-allowed opacity-60">
-                    GENERAR HOJA DE TÉRMINOS
+                    GENERATE TERM SHEET
                   </button>
                   <button disabled className="px-5 py-2 text-[11px] font-bold tracking-wider uppercase border border-slate-300 text-slate-400 rounded cursor-not-allowed opacity-60">
-                    RESERVAR LLAMADA DE VENTAS
+                    BOOK SALES CALL
                   </button>
                 </div>
               </div>
               
               <div className="mt-12 bg-red-50 border border-red-200 p-4 rounded text-left z-10 max-w-sm">
-                <p className="text-[10px] text-red-700 font-bold uppercase mb-1 font-mono tracking-wider">Alerta de Riesgo Operativo</p>
+                <p className="text-[10px] text-red-700 font-bold uppercase mb-1 font-mono tracking-wider">Operational Risk Alert</p>
                 <p className="text-[11px] text-red-900 leading-relaxed italic">
-                  "Hasta que el Onboarding Checklist básico haya sido validado, cualquier intercambio de cotizaciones o tarifas está estrictamente prohibido bajo sanción disciplinaria."
+                  "Until the basic Onboarding Checklist has been validated, any exchange of quotes or rates is strictly prohibited under disciplinary sanction."
                 </p>
               </div>
             </div>
           ) : (
-            /* Diagnóstico Activo */
+            /* Active Diagnosis */
             <div className="bg-white rounded border border-slate-200 shadow-sm overflow-hidden flex flex-col">
               
-              {/* Banner de Cumplimiento */}
+              {/* Compliance Banner */}
               {currentResult.isCompliant ? (
                 <div className="bg-emerald-50 text-emerald-800 border-b border-emerald-100 p-6 flex items-start gap-4">
                   <div className="bg-emerald-600 text-white p-2.5 rounded shadow shrink-0">
@@ -1241,13 +1246,13 @@ export default function App() {
                   </div>
                   <div>
                     <h2 className="font-display font-bold text-sm tracking-wide text-emerald-950 flex items-center gap-2">
-                      ESTADO DE COMPLIANCE: CONFORME
+                      COMPLIANCE STATUS: COMPLIANT
                       <span className="bg-emerald-200 text-emerald-900 text-[10px] font-mono px-2 py-0.5 rounded font-semibold uppercase border border-emerald-300">
-                        Aprobado
+                        Approved
                       </span>
                     </h2>
                     <p className="text-xs text-emerald-700/90 mt-1 leading-relaxed">
-                      Este intercambio de comunicación respeta estrictamente el protocolo. No se entablaron negociaciones de precios o contratos sustanciales antes de solicitar u obtener los requisitos KYC. Es seguro continuar el diálogo respetando las reglas de onboarding.
+                      This communication exchange strictly respects the protocol. No price negotiations or substantial contract discussions were initiated before requesting or obtaining KYC requirements. It is safe to continue the dialogue in accordance with onboarding rules.
                     </p>
                   </div>
                 </div>
@@ -1258,71 +1263,71 @@ export default function App() {
                   </div>
                   <div>
                     <h2 className="font-display font-bold text-sm tracking-wide text-rose-950 flex items-center gap-2">
-                      ESTADO DE COMPLIANCE: BRECHA DETECTADA
+                      COMPLIANCE STATUS: BREACH DETECTED
                       <span className="bg-rose-200 text-rose-900 text-[10px] font-mono px-2 py-0.5 rounded font-semibold uppercase border border-rose-300">
-                        Crítico
+                        Critical
                       </span>
                     </h2>
                     <p className="text-xs text-rose-700/90 mt-1 leading-relaxed">
-                      <strong>¡Peligro de Incumplimiento!</strong> Se han detectado discusiones comerciales sustantivas (precios, ofertas de descuentos, cotizaciones o condiciones de contratos) antes de que el proceso de KYC básico fuera completado. Debe detener de inmediato las conversaciones de tarifas y regularizar la cuenta solicitando el Onboarding Checklist.
+                      <strong>Compliance Danger!</strong> Substantive commercial discussions (pricing, discount offers, quotes, or contract terms) have been detected before the basic KYC process was completed. You must immediately cease rate discussions and regularize the account by requesting the Onboarding Checklist.
                     </p>
                   </div>
                 </div>
               )}
 
-              {/* Contenido del Reporte */}
+              {/* Report Content */}
               <div className="p-6 flex flex-col gap-6">
                 
-                {/* 1. Datos del Cliente / Contraparte */}
+                {/* 1. Client / Counterparty Information */}
                 <div>
                   <h3 className="font-display font-bold text-slate-800 text-xs uppercase tracking-wider mb-3 flex items-center gap-1.5">
                     <User className="w-4 h-4 text-slate-500" />
-                    Información de la Contraparte
+                    Counterparty Information
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded border border-slate-200 text-xs">
                     <div className="flex items-center gap-2.5">
                       <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       <div>
-                        <p className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold font-mono">Nombre de Contraparte</p>
+                        <p className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold font-mono">Counterparty Name</p>
                         <p className="font-bold text-slate-800 mt-0.5">{currentResult.clientName}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2.5">
                       <Building className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       <div>
-                        <p className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold font-mono">Empresa / Organización</p>
+                        <p className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold font-mono">Company / Organization</p>
                         <p className="font-bold text-slate-800 mt-0.5">{currentResult.companyName}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2.5">
                       <Globe className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       <div>
-                        <p className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold font-mono">Jurisdicción de Origen</p>
+                        <p className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold font-mono">Jurisdiction of Origin</p>
                         <p className="font-bold text-slate-800 mt-0.5">{currentResult.country}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2.5">
                       <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       <div>
-                        <p className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold font-mono">Cargo o Función</p>
+                        <p className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold font-mono">Role / Title</p>
                         <p className="font-bold text-slate-800 mt-0.5">{currentResult.role}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2.5 md:col-span-2 border-t border-slate-200 pt-2.5 mt-1">
                       <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       <div>
-                        <p className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold font-mono font-mono">Datos de Contacto Extraídos</p>
+                        <p className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold font-mono">Extracted Contact Details</p>
                         <p className="font-semibold text-slate-700 mt-0.5">{currentResult.contactInfo}</p>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* 2. Checklist KYC */}
+                {/* 2. KYC Checklist */}
                 <div>
                   <h3 className="font-display font-bold text-slate-800 text-xs uppercase tracking-wider mb-3 flex items-center gap-1.5">
                     <CheckCircle2 className="w-4 h-4 text-slate-500" />
-                    Checklist KYC Corporativo Obligatorio
+                    Mandatory Corporate KYC Checklist
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     
@@ -1337,12 +1342,12 @@ export default function App() {
                         ) : (
                           <XCircle className="w-4 h-4 text-slate-400 shrink-0" />
                         )}
-                        <span className="text-xs font-medium">Identidad Legal Establecida</span>
+                        <span className="text-xs font-medium">Legal Identity Established</span>
                       </div>
                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
                         currentResult.kycChecklist.identityEstablished ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-slate-200 text-slate-600 border-slate-300'
                       }`}>
-                        {currentResult.kycChecklist.identityEstablished ? 'SÍ' : 'NO'}
+                        {currentResult.kycChecklist.identityEstablished ? 'YES' : 'NO'}
                       </span>
                     </div>
 
@@ -1357,12 +1362,12 @@ export default function App() {
                         ) : (
                           <XCircle className="w-4 h-4 text-slate-400 shrink-0" />
                         )}
-                        <span className="text-xs font-medium">Propietarios Finales (UBO)</span>
+                        <span className="text-xs font-medium">Ultimate Beneficial Owners (UBO)</span>
                       </div>
                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
                         currentResult.kycChecklist.ownershipVerified ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-slate-200 text-slate-600 border-slate-300'
                       }`}>
-                        {currentResult.kycChecklist.ownershipVerified ? 'SÍ' : 'NO'}
+                        {currentResult.kycChecklist.ownershipVerified ? 'YES' : 'NO'}
                       </span>
                     </div>
 
@@ -1377,12 +1382,12 @@ export default function App() {
                         ) : (
                           <XCircle className="w-4 h-4 text-slate-400 shrink-0" />
                         )}
-                        <span className="text-xs font-medium">Actividad Comercial Definida</span>
+                        <span className="text-xs font-medium">Business Activity Defined</span>
                       </div>
                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
                         currentResult.kycChecklist.businessActivityDefined ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-slate-200 text-slate-600 border-slate-300'
                       }`}>
-                        {currentResult.kycChecklist.businessActivityDefined ? 'SÍ' : 'NO'}
+                        {currentResult.kycChecklist.businessActivityDefined ? 'YES' : 'NO'}
                       </span>
                     </div>
 
@@ -1397,29 +1402,29 @@ export default function App() {
                         ) : (
                           <XCircle className="w-4 h-4 text-slate-400 shrink-0" />
                         )}
-                        <span className="text-xs font-medium">Análisis de Perfil de Riesgo</span>
+                        <span className="text-xs font-medium">Risk Profile Assessment</span>
                       </div>
                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
                         currentResult.kycChecklist.riskAssessmentCompleted ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-slate-200 text-slate-600 border-slate-300'
                       }`}>
-                        {currentResult.kycChecklist.riskAssessmentCompleted ? 'SÍ' : 'NO'}
+                        {currentResult.kycChecklist.riskAssessmentCompleted ? 'YES' : 'NO'}
                       </span>
                     </div>
 
                   </div>
                 </div>
 
-                {/* Identificación Fiscal & Research */}
+                {/* Tax Identification & Research */}
                 <div className="bg-slate-50 border border-slate-200 rounded p-4">
                   <h3 className="font-display font-bold text-slate-800 text-xs uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
                     <Building className="w-4 h-4 text-indigo-600" />
-                    Identificación Fiscal & Verificación de Registro (CIF / NIF / VAT)
+                    Tax Identification & Registry Verification (CIF / NIF / VAT)
                   </h3>
                   {currentResult.taxId && currentResult.taxId !== 'None' ? (
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-slate-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded font-mono">
-                          ID Fiscal: {currentResult.taxId}
+                          Tax ID: {currentResult.taxId}
                         </span>
                         <span className="text-[10px] bg-indigo-100 text-indigo-800 border border-indigo-200 px-2 py-0.5 rounded font-bold font-mono">
                           RESEARCH ACTIVE
@@ -1431,20 +1436,20 @@ export default function App() {
                     </div>
                   ) : (
                     <p className="text-xs text-slate-500 italic">
-                      No se detectó ningún número de identificación fiscal (CIF, NIF, o VAT) en la conversación para realizar la investigación automática.
+                      No tax identification number (CIF, NIF, or VAT) was detected in the conversation to perform automatic registry research.
                     </p>
                   )}
                 </div>
 
-                {/* 2.5 Cuestionario de Onboarding Huboo (20 Preguntas) */}
+                {/* 2.5 Huboo Onboarding Questionnaire (20 Questions) */}
                 <div className="bg-slate-50 border border-slate-200 rounded p-5">
                   <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
                     <h3 className="font-display font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5">
                       <FileText className="w-4 h-4 text-emerald-600" />
-                      Huboo - Client Onboarding Questionnaire (20 Preguntas)
+                      Huboo - Client Onboarding Questionnaire (20 Questions)
                     </h3>
                     <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded font-bold font-mono uppercase">
-                      Extracción Inteligente
+                      Smart Extraction
                     </span>
                   </div>
                   
@@ -1478,20 +1483,20 @@ export default function App() {
                            item.key === "q4_address_phone" ? currentResult.contactInfo :
                            item.key === "q5_company_name" ? currentResult.companyName :
                            item.key === "q6_activity" ? currentResult.role :
-                           item.key === "q7_statutory_db" ? (currentResult.taxId && currentResult.taxId !== 'None' ? `${currentResult.taxId} - ${currentResult.taxIdResearch || ''}` : '(no me lo ha contestado)') :
-                           '(no me lo ha contestado)');
+                           item.key === "q7_statutory_db" ? (currentResult.taxId && currentResult.taxId !== 'None' ? `${currentResult.taxId} - ${currentResult.taxIdResearch || ''}` : '(Not answered / Not provided)') :
+                           '(Not answered / Not provided)');
                            
                       const sanitizeDisplayVal = (val: any) => {
-                        if (val === undefined || val === null) return '(no me lo ha contestado)';
+                        if (val === undefined || val === null) return '(Not answered / Not provided)';
                         const s = String(val).trim();
-                        if (!s || s.toLowerCase() === 'none' || s.toLowerCase() === 'unknown' || s.toLowerCase() === 'n/a' || s === '(no me lo ha contestado)') {
-                          return '(no me lo ha contestado)';
+                        if (!s || s.toLowerCase() === 'none' || s.toLowerCase() === 'unknown' || s.toLowerCase() === 'n/a' || s === '(no me lo ha contestado)' || s === '(not answered)' || s === '(not answered / not provided)') {
+                          return '(Not answered / Not provided)';
                         }
                         return s;
                       };
                       
                       const val = sanitizeDisplayVal(rawVal);
-                      const isUnanswered = val.includes('(no me lo ha contestado)');
+                      const isUnanswered = val.includes('(Not answered / Not provided)');
                       
                       return (
                         <div key={item.key} className="bg-white p-3 rounded border border-slate-200 flex flex-col justify-between hover:shadow-sm transition-all duration-200">
@@ -1516,7 +1521,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* 3. Discusiones Comerciales Detectadas */}
+                {/* 3. Commercial Discussions Detected */}
                 <div className={`p-4 rounded border ${
                   currentResult.commercialDiscussionsDetected 
                     ? 'bg-red-50 border-red-200 text-red-950' 
@@ -1528,18 +1533,18 @@ export default function App() {
                     ) : (
                       <ShieldCheck className="w-4 h-4 text-slate-500" />
                     )}
-                    Temas Comerciales Abordados
+                    Commercial Discussions Detected
                   </h4>
                   <p className="text-xs leading-relaxed">
                     {currentResult.commercialDetailsFound}
                   </p>
                 </div>
 
-                {/* 4. Resumen y Plan de Acción */}
+                {/* 4. Summary and Action Plan */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <h3 className="font-display font-bold text-slate-800 text-xs uppercase tracking-wider mb-2.5">
-                      Resumen de la Comunicación
+                      Communication Summary
                     </h3>
                     <div className="bg-slate-50 p-4 rounded border border-slate-200 text-xs leading-relaxed text-slate-600">
                       {currentResult.summaryOfCall}
@@ -1548,7 +1553,7 @@ export default function App() {
 
                   <div>
                     <h3 className="font-display font-bold text-slate-800 text-xs uppercase tracking-wider mb-2.5">
-                      Plan de Acción y Regularización
+                      Action & Regularization Plan
                     </h3>
                     <ul className="flex flex-col gap-2">
                       {currentResult.nextStepsRequired.map((step, index) => (
@@ -1565,7 +1570,7 @@ export default function App() {
                 <div className="border-t border-slate-200 pt-6 flex flex-col gap-3">
                   <div className="flex justify-between items-center flex-wrap gap-2">
                     <h4 className="font-display font-bold text-slate-800 text-xs uppercase tracking-wider">
-                      Exportar Reporte de Compliance
+                      Export Compliance Report
                     </h4>
                     
                     {/* Settings Trigger */}
@@ -1575,7 +1580,7 @@ export default function App() {
                       className="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 cursor-pointer transition"
                     >
                       <Info className="w-3.5 h-3.5" />
-                      {showGoogleConfig ? 'Ocultar Ajustes' : 'Ajustes de Google Drive (Vercel)'}
+                      {showGoogleConfig ? 'Hide Settings' : 'Google Drive Settings (Vercel)'}
                     </button>
                   </div>
 
@@ -1584,45 +1589,45 @@ export default function App() {
                     <div className="p-4 bg-indigo-50/50 border border-indigo-100 rounded-lg text-xs text-slate-600 flex flex-col gap-3 animate-fadeIn mb-3">
                       <div className="font-semibold text-slate-800 text-xs flex items-center gap-1">
                         <Info className="w-4 h-4 text-indigo-600" />
-                        Guía Definitiva de Configuración para Google Drive en Vercel
+                        Ultimate Google Drive Configuration Guide for Vercel
                       </div>
                       <p className="text-[11px] leading-relaxed">
-                        Google es sumamente estricto con las direcciones URL de redirección. Una barra diagonal (<code className="bg-slate-200 px-0.5 rounded text-red-600 font-mono">/</code>) de más o de menos puede causar el error <code className="bg-slate-200 px-1 py-0.5 rounded text-red-600 font-bold">redirect_uri_mismatch</code>. 
-                        Sigue estos pasos detallados para resolverlo de inmediato:
+                        Google is extremely strict with redirect URL matching. An extra or missing forward slash (<code className="bg-slate-200 px-0.5 rounded text-red-600 font-mono">/</code>) can trigger a <code className="bg-slate-200 px-1 py-0.5 rounded text-red-600 font-bold">redirect_uri_mismatch</code> error. 
+                        Follow these exact steps to resolve it:
                       </p>
                       <ol className="list-decimal pl-4 text-[11px] flex flex-col gap-2 text-slate-600">
-                        <li>Abre la <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-semibold">Consola de Google Cloud</a> e ingresa a tu proyecto.</li>
-                        <li>Haz clic en tu credencial tipo <strong>ID de cliente de OAuth 2.0</strong> (o crea una seleccionando <em>Aplicación web</em>).</li>
+                        <li>Open the <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-semibold">Google Cloud Console</a> and go to your project.</li>
+                        <li>Click on your <strong>OAuth 2.0 Client ID</strong> credential (or create one by choosing <em>Web application</em>).</li>
                         <li>
-                          En la sección <strong>Orígenes de JavaScript autorizados</strong>, agrega este origen exacto (sin barra final):
+                          In the <strong>Authorized JavaScript origins</strong> section, add this exact origin (no trailing slash):
                           <div className="mt-1 flex items-center gap-1.5">
                             <code className="bg-white border border-slate-200 px-2 py-1 rounded text-red-600 font-mono select-all text-[10px] font-semibold break-all">{window.location.origin}</code>
                           </div>
                         </li>
                         <li>
-                          En la sección <strong>URIs de redireccionamiento autorizados</strong>, debes agregar <strong>AMBOS</strong> valores para evitar errores de barra final:
+                          In the <strong>Authorized redirect URIs</strong> section, you must add <strong>BOTH</strong> values to avoid trailing-slash issues:
                           <div className="mt-1.5 flex flex-col gap-1">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-slate-400 font-mono text-[10px] w-14 font-semibold">Valor 1:</span>
+                              <span className="text-slate-400 font-mono text-[10px] w-14 font-semibold">Value 1:</span>
                               <code className="bg-white border border-slate-200 px-2 py-1 rounded text-indigo-600 font-mono select-all text-[10px] font-semibold break-all">{window.location.origin}</code>
                             </div>
                             <div className="flex items-center gap-1.5">
-                              <span className="text-slate-400 font-mono text-[10px] w-14 font-semibold">Valor 2:</span>
+                              <span className="text-slate-400 font-mono text-[10px] w-14 font-semibold">Value 2:</span>
                               <code className="bg-white border border-slate-200 px-2 py-1 rounded text-indigo-600 font-mono select-all text-[10px] font-semibold break-all">{window.location.origin + '/'}</code>
                             </div>
                             {window.location.href.split('#')[0].split('?')[0] !== window.location.origin && window.location.href.split('#')[0].split('?')[0] !== window.location.origin + '/' && (
                               <div className="flex items-center gap-1.5">
-                                <span className="text-slate-400 font-mono text-[10px] w-14 font-semibold">Valor 3:</span>
+                                <span className="text-slate-400 font-mono text-[10px] w-14 font-semibold">Value 3:</span>
                                 <code className="bg-white border border-slate-200 px-2 py-1 rounded text-indigo-600 font-mono select-all text-[10px] font-semibold break-all">{window.location.href.split('#')[0].split('?')[0]}</code>
                               </div>
                             )}
                           </div>
                           <p className="text-[10px] text-slate-500 mt-1 italic font-sans">
-                            * Agrega una fila para el Valor 1 y otra fila para el Valor 2 en Google Cloud.
+                            * Add one row for Value 1 and another row for Value 2 in Google Cloud.
                           </p>
                         </li>
-                        <li>Haz clic en <strong>Guardar</strong> en el botón azul inferior de la consola de Google.</li>
-                        <li>Copia el <strong>ID de cliente</strong> generado (el texto largo que termina en <code className="bg-slate-200 px-0.5 rounded font-mono">.apps.googleusercontent.com</code>) y pégalo aquí abajo:</li>
+                        <li>Click <strong>Save</strong> at the bottom of the Google Console page.</li>
+                        <li>Copy the generated <strong>Client ID</strong> (the long text ending in <code className="bg-slate-200 px-0.5 rounded font-mono">.apps.googleusercontent.com</code>) and paste it below:</li>
                       </ol>
 
                       {/* Error 403 Troubleshooting block */}
@@ -1632,29 +1637,29 @@ export default function App() {
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
                           </span>
-                          ¿Te aparece el Error "Acceso bloqueado: App no verificada" o "Error 403: access_denied"?
+                          Are you seeing the Error "Access blocked: App not verified" or "Error 403: access_denied"?
                         </div>
                         <p className="text-[10px] leading-relaxed text-slate-600 mb-2">
-                          Esto se debe a que tu proyecto de Google Cloud está en estado de <strong>Prueba (Testing)</strong> por defecto y no permite accesos externos sin autorizar previamente los correos de prueba.
+                          This is because your Google Cloud project is in <strong>Testing</strong> mode by default and does not allow external sign-ins without authorized test users.
                         </p>
-                        <div className="text-[10px] font-medium text-slate-800 mb-1">Cómo solucionarlo en 1 minuto:</div>
+                        <div className="text-[10px] font-medium text-slate-800 mb-1">How to fix this in 1 minute:</div>
                         <ol className="list-decimal pl-4 text-[10px] flex flex-col gap-1 text-slate-600">
-                          <li>Entra a la <a href="https://console.cloud.google.com/apis/credentials/consent" target="_blank" rel="noopener noreferrer" className="text-amber-700 underline font-semibold">Pantalla de consentimiento de OAuth de Google Cloud</a>.</li>
-                          <li>Busca la sección llamada <strong>Usuarios de prueba (Test users)</strong>.</li>
-                          <li>Haz clic en el botón <strong>+ ADD USERS (Agregar usuarios)</strong>.</li>
-                          <li>Agrega tu correo electrónico exacto: <code className="bg-amber-100 border border-amber-250 px-1 py-0.5 rounded text-amber-950 font-mono select-all font-bold">huboo.nicolas@gmail.com</code> y guarda los cambios.</li>
-                          <li><em>(Opcional)</em> Si quieres que cualquiera pueda usar la app sin configurar usuarios, puedes hacer clic en el botón <strong>Publicar aplicación (Publish app)</strong> en esa misma pantalla de consentimiento de Google Cloud para pasarla a producción.</li>
+                          <li>Go to the <a href="https://console.cloud.google.com/apis/credentials/consent" target="_blank" rel="noopener noreferrer" className="text-amber-700 underline font-semibold">OAuth Consent Screen</a> in the Google Cloud Console.</li>
+                          <li>Locate the section labeled <strong>Test users</strong>.</li>
+                          <li>Click on the <strong>+ ADD USERS</strong> button.</li>
+                          <li>Add your exact email address: <code className="bg-amber-100 border border-amber-250 px-1 py-0.5 rounded text-amber-950 font-mono select-all font-bold">huboo.nicolas@gmail.com</code> and save changes.</li>
+                          <li><em>(Optional)</em> If you want any email to access the app without manual configuration, click on <strong>Publish app</strong> on that same Google Cloud consent page to move it to production status.</li>
                         </ol>
                       </div>
 
                       <div className="flex flex-col gap-1.5 mt-2">
-                        <label className="font-semibold text-slate-700 text-[11px]">ID de Cliente de Google (OAuth Client ID):</label>
+                        <label className="font-semibold text-slate-700 text-[11px]">Google Client ID (OAuth Client ID):</label>
                         <div className="flex gap-2">
                           <input
                             type="text"
                             value={customGoogleClientId}
                             onChange={(e) => setCustomGoogleClientId(e.target.value)}
-                            placeholder="Ej. 123456789-abc.apps.googleusercontent.com"
+                            placeholder="e.g., 123456789-abc.apps.googleusercontent.com"
                             className="bg-white border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-800 w-full focus:outline-none focus:border-indigo-500"
                           />
                           <button
@@ -1662,11 +1667,11 @@ export default function App() {
                             onClick={() => {
                               localStorage.setItem('custom_google_client_id', customGoogleClientId.trim());
                               setShowGoogleConfig(false);
-                              alert('Configuración de Google Client ID guardada correctamente.');
+                              alert('Google Client ID configuration saved successfully.');
                             }}
                             className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 rounded transition cursor-pointer shrink-0"
                           >
-                            Guardar
+                            Save
                           </button>
                         </div>
                       </div>
@@ -1684,12 +1689,12 @@ export default function App() {
                         {exportingDoc ? (
                           <>
                             <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                            Generando Google Doc...
+                            Generating Google Doc...
                           </>
                         ) : (
                           <>
                             <PlusCircle className="w-3.5 h-3.5" />
-                            Exportar a Google Docs
+                            Export to Google Docs
                           </>
                         )}
                       </button>
@@ -1697,10 +1702,10 @@ export default function App() {
                       <button
                         onClick={handleGoogleLogin}
                         className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase tracking-wider py-2.5 px-4 rounded border border-slate-200 flex items-center gap-2 transition cursor-pointer"
-                        title="Inicia sesión con Google para habilitar exportación a Google Docs"
+                        title="Log in with Google to enable Google Docs export"
                       >
                         <Lock className="w-3.5 h-3.5 text-slate-400" />
-                        Conectar Google Workspace para Exportar
+                        Connect Google Workspace to Export
                       </button>
                     )}
 
@@ -1710,7 +1715,7 @@ export default function App() {
                       className="bg-slate-850 hover:bg-slate-900 text-white font-bold text-xs uppercase tracking-wider py-2.5 px-4 rounded flex items-center gap-2 transition cursor-pointer shadow-sm"
                     >
                       <Download className="w-3.5 h-3.5" />
-                      Descargar Reporte Offline (HTML)
+                      Download Offline Report (HTML)
                     </button>
                   </div>
 
@@ -1721,10 +1726,10 @@ export default function App() {
                         <div>
                           <p className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
                             <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                            ¡Reporte subido a Google Drive con éxito!
+                            Report uploaded to Google Drive successfully!
                           </p>
                           <p className="text-[11px] text-indigo-700 mt-0.5">
-                            Se guardó en la carpeta <strong className="text-indigo-900">"{exportedFolderName || 'Empresa'}"</strong> en Google Drive.
+                            Saved in the folder <strong className="text-indigo-900">"{exportedFolderName || 'Company'}"</strong> in Google Drive.
                           </p>
                         </div>
                         <div className="flex flex-wrap gap-2 w-full sm:w-auto shrink-0">
@@ -1736,7 +1741,7 @@ export default function App() {
                               className="bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 font-bold text-[10px] uppercase tracking-wider py-1.5 px-3 rounded flex items-center gap-1.5 transition whitespace-nowrap justify-center flex-1 sm:flex-none cursor-pointer"
                             >
                               <Folder className="w-3 h-3 text-indigo-600" />
-                              Ver Carpeta de Empresa
+                              View Company Folder
                             </a>
                           )}
                           <a
@@ -1745,7 +1750,7 @@ export default function App() {
                             rel="noopener noreferrer"
                             className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] uppercase tracking-wider py-1.5 px-3 rounded flex items-center gap-1.5 transition whitespace-nowrap justify-center flex-1 sm:flex-none cursor-pointer"
                           >
-                            Abrir Documento Google
+                            Open Google Doc
                             <ExternalLink className="w-3 h-3" />
                           </a>
                         </div>
@@ -1760,18 +1765,18 @@ export default function App() {
                       <div className="flex items-center gap-2">
                         <Folder className="w-4 h-4 text-indigo-400" />
                         <h4 className="font-display font-bold text-xs uppercase tracking-wider">
-                          Explorador Visual: Repositorio en Google Drive
+                          Visual Explorer: Google Drive Repository
                         </h4>
                       </div>
                       <div className="flex items-center gap-2">
                         {googleUser ? (
                           <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-mono px-2 py-0.5 rounded border border-emerald-500/30 font-semibold flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                            Conectado
+                            Connected
                           </span>
                         ) : (
                           <span className="bg-slate-700 text-slate-300 text-[10px] font-mono px-2 py-0.5 rounded border border-slate-600">
-                            Simulación de Estructura
+                            Structure Preview
                           </span>
                         )}
                         {googleUser && (
@@ -1780,7 +1785,7 @@ export default function App() {
                             onClick={() => fetchDriveFolders(oauthToken)}
                             disabled={loadingDrive}
                             className="text-indigo-400 hover:text-white p-1 rounded hover:bg-slate-800 transition disabled:opacity-50 cursor-pointer"
-                            title="Refrescar carpetas de Drive"
+                            title="Refresh Drive folders"
                           >
                             <RefreshCw className={`w-3.5 h-3.5 ${loadingDrive ? 'animate-spin' : ''}`} />
                           </button>
@@ -1795,7 +1800,7 @@ export default function App() {
                         <div className="md:col-span-4 bg-slate-100 border-b md:border-b-0 md:border-r border-slate-200 p-3.5 flex flex-col gap-3">
                           <div className="flex justify-between items-center">
                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">
-                              Carpetas KYC
+                              KYC Folders
                             </span>
                             <span className="text-[10px] font-bold bg-slate-200 text-slate-600 px-1.5 py-0.2 rounded font-mono">
                               {driveFolders.length}
@@ -1807,7 +1812,7 @@ export default function App() {
                             type="text"
                             value={folderSearch}
                             onChange={(e) => setFolderSearch(e.target.value)}
-                            placeholder="Buscar empresa..."
+                            placeholder="Search company..."
                             className="bg-white border border-slate-300 rounded px-2 py-1 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 w-full"
                           />
 
@@ -1815,13 +1820,13 @@ export default function App() {
                           {loadingDrive ? (
                             <div className="flex flex-col items-center justify-center py-10 gap-2">
                               <RefreshCw className="w-5 h-5 text-indigo-600 animate-spin" />
-                              <span className="text-[11px] text-slate-500">Cargando carpetas...</span>
+                              <span className="text-[11px] text-slate-500">Loading folders...</span>
                             </div>
                           ) : driveFolders.length === 0 ? (
                             <div className="text-center py-8 bg-white/50 border border-dashed border-slate-250 rounded p-4 text-slate-400">
                               <Folder className="w-6 h-6 text-slate-300 mx-auto mb-1.5" />
                               <p className="text-[10px] leading-normal">
-                                No se encontraron carpetas. Exporta un reporte para crear una.
+                                No folders found. Export a report to create one.
                               </p>
                             </div>
                           ) : (
@@ -1854,11 +1859,11 @@ export default function App() {
                               {/* Breadcrumbs / Actions */}
                               <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 pb-3 border-b border-slate-100">
                                 <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                                  <span className="font-semibold text-slate-400">Mi Unidad</span>
+                                  <span className="font-semibold text-slate-400 font-sans">My Drive</span>
                                   <span className="text-slate-300">/</span>
                                   <Folder className="w-3.5 h-3.5 text-indigo-600" />
                                   <span className="font-bold text-slate-800 truncate max-w-[150px]">
-                                    {driveFolders.find(f => f.id === activeFolderId)?.name || 'Empresa'}
+                                    {driveFolders.find(f => f.id === activeFolderId)?.name || 'Company'}
                                   </span>
                                 </div>
                                 <a
@@ -1867,7 +1872,7 @@ export default function App() {
                                   rel="noopener noreferrer"
                                   className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 transition self-start cursor-pointer"
                                 >
-                                  Abrir Carpeta en Google Drive ↗
+                                  Open Folder in Google Drive ↗
                                 </a>
                               </div>
 
@@ -1875,7 +1880,7 @@ export default function App() {
                               <div className="flex flex-col gap-2">
                                 <div className="flex justify-between items-center">
                                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">
-                                    Archivos de Cumplimiento
+                                    Compliance Files
                                   </span>
                                   <button
                                     type="button"
@@ -1883,18 +1888,18 @@ export default function App() {
                                     disabled={loadingDriveFiles}
                                     className="text-[9px] text-indigo-600 font-bold font-mono hover:underline cursor-pointer"
                                   >
-                                    Refrescar archivos
+                                    Refresh files
                                   </button>
                                 </div>
 
                                 {loadingDriveFiles ? (
                                   <div className="flex items-center justify-center py-10 gap-2">
                                     <RefreshCw className="w-4 h-4 text-indigo-600 animate-spin" />
-                                    <span className="text-xs text-slate-500">Consultando Drive...</span>
+                                    <span className="text-xs text-slate-500">Consulting Drive...</span>
                                   </div>
                                 ) : activeFolderFiles.length === 0 ? (
                                   <p className="text-[11px] text-slate-500 text-center py-8 border border-dashed border-slate-200 rounded">
-                                    No hay archivos adicionales en esta carpeta de Drive. Puedes añadir notas o actas adicionales abajo.
+                                    No additional files found in this Drive folder. You can add notes or legal annexes below.
                                   </p>
                                 ) : (
                                   <div className="flex flex-col gap-1.5 max-h-[160px] overflow-y-auto pr-1">
@@ -1913,7 +1918,7 @@ export default function App() {
                                               </p>
                                               {file.createdTime && (
                                                 <p className="text-[9px] text-slate-400 font-mono mt-0.5">
-                                                  Creado: {new Date(file.createdTime).toLocaleString('es-ES', {
+                                                  Created: {new Date(file.createdTime).toLocaleString('en-US', {
                                                     day: '2-digit',
                                                     month: '2-digit',
                                                     hour: '2-digit',
@@ -1930,7 +1935,7 @@ export default function App() {
                                               rel="noopener noreferrer"
                                               className="bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 text-indigo-600 text-[10px] font-bold py-1 px-2.5 rounded flex items-center gap-1 transition cursor-pointer shrink-0"
                                             >
-                                              Abrir ↗
+                                              Open ↗
                                             </a>
                                           )}
                                         </div>
@@ -1947,40 +1952,40 @@ export default function App() {
                                     type="button"
                                     onClick={() => {
                                       setShowNoteForm(true);
-                                      setNewNoteTitle(`Anotación Adicional - ${currentResult?.companyName || 'Empresa'}`);
-                                      setNewNoteContent('PEP validado en base de datos nacional, sin coincidencias encontradas.\nSe adjuntan hallazgos como anexo legal de KYC.');
+                                      setNewNoteTitle(`Additional Compliance Note - ${currentResult?.companyName || 'Company'}`);
+                                      setNewNoteContent('PEP checked against national database, zero matches found.\nFindings attached as legal KYC annex.');
                                     }}
                                     className="bg-slate-100 hover:bg-slate-200 border border-slate-300 hover:border-slate-400 text-slate-700 text-[11px] font-bold py-2 px-3 rounded flex items-center justify-center gap-1.5 transition cursor-pointer w-full"
                                   >
                                     <PlusCircle className="w-3.5 h-3.5 text-slate-500" />
-                                    Añadir Memorándum o Nota de Compliance Directo a Drive
+                                    Add Memorandum or Compliance Note Directly to Drive
                                   </button>
                                 ) : (
                                   <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex flex-col gap-2.5 animate-fadeIn">
                                     <div className="flex justify-between items-center">
                                       <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider font-mono">
-                                        Nuevo Memo en Google Docs
+                                        New Memo in Google Docs
                                       </span>
                                       <button
                                         type="button"
                                         onClick={() => setShowNoteForm(false)}
                                         className="text-slate-400 hover:text-rose-600 text-[10px] font-bold cursor-pointer"
                                       >
-                                        Cancelar
+                                        Cancel
                                       </button>
                                     </div>
                                     <input
                                       type="text"
                                       value={newNoteTitle}
                                       onChange={(e) => setNewNoteTitle(e.target.value)}
-                                      placeholder="Título de la Nota"
+                                      placeholder="Note Title"
                                       className="bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 font-semibold w-full"
                                     />
                                     <textarea
                                       rows={3}
                                       value={newNoteContent}
                                       onChange={(e) => setNewNoteContent(e.target.value)}
-                                      placeholder="Detalles del hallazgo o validación..."
+                                      placeholder="Details of findings or validation..."
                                       className="bg-white border border-slate-300 rounded px-2 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 font-mono w-full resize-none"
                                     />
                                     <button
@@ -1992,10 +1997,10 @@ export default function App() {
                                       {isSavingNote ? (
                                         <>
                                           <RefreshCw className="w-3 animate-spin" />
-                                          Guardando en Drive...
+                                          Saving to Drive...
                                         </>
                                       ) : (
-                                        'Guardar Nota en Google Drive'
+                                        'Save Note to Google Drive'
                                       )}
                                     </button>
                                   </div>
@@ -2011,9 +2016,9 @@ export default function App() {
                           ) : (
                             <div className="flex flex-col items-center justify-center text-center h-full text-slate-500 p-6 my-auto">
                               <Folder className="w-10 h-10 text-indigo-200 mb-2" />
-                              <h5 className="font-bold text-xs text-slate-700">Explorador de Archivos Corporativo</h5>
+                              <h5 className="font-bold text-xs text-slate-700">Corporate File Explorer</h5>
                               <p className="text-[11px] leading-relaxed text-slate-500 mt-1 max-w-xs">
-                                Selecciona una carpeta de la lista lateral izquierda para ver sus archivos en Google Drive en tiempo real y redactar notas compliance.
+                                Select a folder from the left list to see its Google Drive files in real-time and draft compliance notes.
                               </p>
                             </div>
                           )}
@@ -2023,36 +2028,36 @@ export default function App() {
                       /* Beautiful Visual Mock Simulator Diagram */
                       <div className="p-4 bg-white flex flex-col gap-4">
                         <p className="text-[11px] leading-relaxed text-slate-600 -mb-1">
-                          Conectar tu cuenta organiza de forma automatizada todos tus documentos en una estructura de carpetas jerárquica limpia, evitando mezclar análisis y permitiendo auditorías rápidas:
+                          Connecting your account automatically organizes all your documents into a clean hierarchical folder structure, avoiding mix-ups and enabling fast compliance audits:
                         </p>
 
                         {/* Interactive Tree View Simulator */}
                         <div className="bg-slate-900 text-slate-300 p-4 rounded-lg font-mono text-[11px] shadow-inner border border-slate-800 select-none flex flex-col gap-2">
                           <div className="flex items-center justify-between border-b border-slate-850 pb-1.5 mb-1 text-[9px] text-slate-500 font-semibold tracking-wider">
-                            <span>VISTA PREVIA DEL REPOSITORIO</span>
+                            <span>REPOSITORY PREVIEW</span>
                             <span>GOOGLE DRIVE</span>
                           </div>
                           <div className="flex items-center gap-2 text-indigo-400">
                             <Folder className="w-3.5 h-3.5 shrink-0" />
-                            <span>Mi Unidad / Mi Google Drive</span>
+                            <span>My Drive / My Google Drive</span>
                           </div>
                           <div className="pl-4 flex items-center gap-2 text-amber-400">
                             <span>└──</span>
                             <Folder className="w-3.5 h-3.5 shrink-0" />
-                            <span>📁 {currentResult?.companyName || '[Nombre de la Empresa]'}</span>
+                            <span>📁 {currentResult?.companyName || '[Company Name]'}</span>
                           </div>
                           <div className="pl-10 flex flex-col gap-1.5 text-slate-400">
                             <div className="flex items-center gap-2">
                               <span>├──</span>
                               <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                              <span className="text-white">📄 Informe KYC - {currentResult?.companyName || '[Empresa]'} ({currentResult?.clientName || '[Cliente]'}).gdoc</span>
-                              <span className="text-[9px] bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-semibold rounded px-1">Reporte Principal</span>
+                              <span className="text-white">📄 KYC Report - {currentResult?.companyName || '[Company]'} ({currentResult?.clientName || '[Client]'}).gdoc</span>
+                              <span className="text-[9px] bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-semibold rounded px-1">Main Report</span>
                             </div>
                             <div className="flex items-center gap-2">
                               <span>└──</span>
                               <FileText className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                              <span>📄 Memorándum Adicional - Compliance Memo.gdoc</span>
-                              <span className="text-[9px] bg-slate-800 text-slate-500 rounded px-1 font-semibold">Memos del Auditor</span>
+                              <span>📄 Additional Memorandum - Compliance Memo.gdoc</span>
+                              <span className="text-[9px] bg-slate-800 text-slate-500 rounded px-1 font-semibold">Auditor Memos</span>
                             </div>
                           </div>
                         </div>
@@ -2060,21 +2065,21 @@ export default function App() {
                         {/* Feature features list */}
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 border-t border-slate-100 mt-1">
                           <div className="flex flex-col gap-1">
-                            <span className="text-[10px] font-bold text-indigo-600 font-mono">1. CARPETA EXCLUSIVA</span>
+                            <span className="text-[10px] font-bold text-indigo-600 font-mono">1. DEDICATED FOLDER</span>
                             <span className="text-[10px] text-slate-500 leading-relaxed">
-                              Cada empresa tiene su propia carpeta dedicada en tu Drive para una auditoría sin errores de desorden.
+                              Each company has its own dedicated folder in your Drive to ensure clutter-free audits.
                             </span>
                           </div>
                           <div className="flex flex-col gap-1">
-                            <span className="text-[10px] font-bold text-indigo-600 font-mono">2. FORMATO IMPECABLE</span>
+                            <span className="text-[10px] font-bold text-indigo-600 font-mono">2. IMPECCABLE FORMAT</span>
                             <span className="text-[10px] text-slate-500 leading-relaxed">
-                              Los informes se crean con cabeceras, tablas y esquemas de color corporativos autogenerados.
+                              Reports are created with headers, tables, and auto-generated corporate color schemes.
                             </span>
                           </div>
                           <div className="flex flex-col gap-1">
-                            <span className="text-[10px] font-bold text-indigo-600 font-mono">3. REDACCIÓN INTERACTIVA</span>
+                            <span className="text-[10px] font-bold text-indigo-600 font-mono">3. INTERACTIVE WRITING</span>
                             <span className="text-[10px] text-slate-500 leading-relaxed">
-                              Una vez conectado, podrás redactar y adjuntar notas adicionales que se guardarán directamente en su carpeta.
+                              Once connected, you can draft and attach additional notes that save directly into their folder.
                             </span>
                           </div>
                         </div>
@@ -2085,7 +2090,7 @@ export default function App() {
                   {!googleUser && (
                     <p className="text-[10px] text-slate-500 italic mt-1.5 flex items-center gap-1">
                       <Sparkles className="w-3 h-3 text-indigo-500 inline animate-pulse" />
-                      Tip: Cuando conectas tu Google Drive, cada análisis completado se guardará de forma automática en una carpeta de Drive creada para esa empresa.
+                      Tip: When you connect your Google Drive, each completed analysis is automatically saved in a Drive folder created for that company.
                     </p>
                   )}
 
@@ -2111,15 +2116,15 @@ export default function App() {
             <div>
               <h2 className="font-display font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-2">
                 <History className="w-4 h-4 text-slate-500" />
-                Historial de Análisis Local de Contrapartes
+                Local Counterparty Analysis History
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Directorio persistente local de las contrapartes analizadas y su estado de cumplimiento.
+                Persistent local directory of analyzed counterparties and their compliance status.
               </p>
             </div>
             {clients.length > 0 && (
               <span className="text-xs bg-slate-50 text-slate-600 font-mono px-2 py-0.5 rounded border border-slate-200 font-semibold">
-                {clients.length} Contrapartes
+                {clients.length} Counterparties
               </span>
             )}
           </div>
@@ -2127,19 +2132,19 @@ export default function App() {
           {clients.length === 0 ? (
             <div className="text-center py-10 border border-dashed border-slate-200 rounded bg-slate-50/50">
               <Clock className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-              <p className="text-xs text-slate-500">No hay contrapartes analizadas registradas en el historial local aún.</p>
+              <p className="text-xs text-slate-500">No analyzed counterparties registered in the local history yet.</p>
             </div>
           ) : (
             <div className="overflow-x-auto rounded border border-slate-250 shadow-sm">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 font-mono font-bold uppercase tracking-wider text-[10px]">
-                    <th className="py-3 px-4">Contraparte / Empresa</th>
-                    <th className="py-3 px-4">Jurisdicción</th>
-                    <th className="py-3 px-4">Análisis de Control</th>
-                    <th className="py-3 px-4">Estado Compliance</th>
-                    <th className="py-3 px-4">Fecha Análisis</th>
-                    <th className="py-3 px-4 text-right">Acciones</th>
+                    <th className="py-3 px-4">Counterparty / Company</th>
+                    <th className="py-3 px-4">Jurisdiction</th>
+                    <th className="py-3 px-4">Control Analysis</th>
+                    <th className="py-3 px-4">Compliance Status</th>
+                    <th className="py-3 px-4">Analysis Date</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -2166,11 +2171,11 @@ export default function App() {
                       <td className="py-3.5 px-4 font-bold">
                         {record.isCompliant ? (
                           <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded font-mono font-bold uppercase tracking-wide">
-                            CONFORME
+                            COMPLIANT
                           </span>
                         ) : (
                           <span className="bg-red-100 text-red-800 text-[10px] px-2 py-0.5 rounded font-mono font-bold uppercase tracking-wide animate-pulse">
-                            VIOLACIÓN
+                            VIOLATION
                           </span>
                         )}
                       </td>
@@ -2179,7 +2184,7 @@ export default function App() {
                         <button
                           onClick={(e) => deleteRecord(record.id, e)}
                           className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-slate-100 transition inline-block opacity-0 group-hover:opacity-100"
-                          title="Eliminar de historial"
+                          title="Delete from history"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -2197,7 +2202,7 @@ export default function App() {
       <footer className="bg-slate-950 text-slate-500 text-xs py-8 px-6 text-center border-t border-slate-900 font-sans mt-auto">
         <p className="mb-1 font-semibold text-slate-400">KYC Compliance Automator v1.0</p>
         <p className="max-w-md mx-auto text-[11px] leading-relaxed">
-          Este software cumple estrictamente con el Protocolo de Onboarding y Checklist de KYC Corporativo de Cero Tolerancia. Las auditorías automatizadas utilizan inteligencia de modelos avanzados de Google Gemini para mitigar riesgos legales, regulatorios y comerciales.
+          This software complies strictly with the Zero Tolerance Corporate KYC Checklist and Onboarding Protocol. Automated audits leverage advanced Google Gemini intelligence to mitigate legal, regulatory, and commercial risks.
         </p>
       </footer>
     </div>
