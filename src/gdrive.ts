@@ -270,8 +270,288 @@ _Confidentiality Notice: INTERNAL COMPLIANCE RECORD ONLY. DO NOT DISTRIBUTE EXTE
     parents: folderId ? [folderId] : [],
   };
 
+  // HTML content generation for beautiful Google Docs rendering
+  const escapeHtml = (str: string): string => {
+    if (!str) return '';
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  };
+
+  const escCompanyName = escapeHtml(companyName);
+  const escClientName = escapeHtml(clientName);
+  const escRole = escapeHtml(data.role || 'Not specified');
+  const escCountry = escapeHtml(data.country || 'Not specified');
+  const escContactInfo = escapeHtml(data.contactInfo || 'Not specified');
+  const escCommercialDetails = escapeHtml(data.commercialDetailsFound || 'None.').replace(/\n/g, '<br/>');
+  const escSummary = escapeHtml(data.summaryOfCall || 'No transcript available.').replace(/\n/g, '<br/>');
+
+  const htmlBodyText = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      color: #334155;
+      line-height: 1.6;
+    }
+    .header {
+      border-bottom: 2px solid #3b82f6;
+      padding-bottom: 12px;
+      margin-bottom: 20px;
+    }
+    h1 {
+      color: #1e3a8a;
+      font-size: 22pt;
+      margin: 0;
+      font-weight: bold;
+    }
+    .subtitle {
+      color: #64748b;
+      font-size: 11pt;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-top: 4px;
+      margin-bottom: 0;
+      font-weight: bold;
+    }
+    h2 {
+      color: #1e3a8a;
+      font-size: 15pt;
+      margin-top: 25px;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 6px;
+    }
+    h3 {
+      color: #0f172a;
+      font-size: 11pt;
+      margin-top: 18px;
+      margin-bottom: 8px;
+      font-weight: bold;
+    }
+    .status-container {
+      margin: 20px 0;
+    }
+    .status-box {
+      padding: 16px;
+      border-radius: 6px;
+      font-size: 11pt;
+    }
+    .status-compliant {
+      background-color: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      color: #065f46;
+    }
+    .status-breach {
+      background-color: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+    }
+    blockquote {
+      background-color: #f8fafc;
+      border-left: 4px solid #cbd5e1;
+      padding: 12px 16px;
+      margin: 12px 0;
+      color: #475569;
+      font-style: italic;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0;
+    }
+    th, td {
+      border: 1px solid #e2e8f0;
+      padding: 10px 12px;
+      text-align: left;
+      font-size: 10pt;
+    }
+    th {
+      background-color: #f1f5f9;
+      color: #334155;
+      font-weight: bold;
+    }
+    .checklist-item {
+      margin-bottom: 8px;
+      font-size: 10.5pt;
+    }
+    .checked {
+      color: #059669;
+      font-weight: bold;
+    }
+    .pending {
+      color: #d97706;
+      font-weight: bold;
+    }
+    .footer {
+      font-size: 9pt;
+      color: #94a3b8;
+      margin-top: 50px;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 15px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>HUBOO &ndash; CLIENT ONBOARDING QUESTIONNAIRE</h1>
+    <div class="subtitle">ZERO-TOLERANCE CORPORATE SECURITY PROTOCOL</div>
+  </div>
+
+  <div class="status-container">
+    <div class="status-box ${data.isCompliant ? 'status-compliant' : 'status-breach'}">
+      <strong>COMPLIANCE STATUS: ${data.isCompliant ? 'COMPLIANT (APPROVED)' : 'BREACH DETECTED (RESTRICTED)'}</strong>
+      <br/><br/>
+      ${data.isCompliant 
+        ? 'This communication exchange fully respects the Corporate Zero Tolerance protocol. No unauthorized commercial discussions were detected prior to onboarding requirements.' 
+        : 'CRITICAL SECURITY BREACH: Substantive commercial topics (pricing, quotes, contracts) were discussed prior to establishing complete basic KYC validation.'}
+    </div>
+  </div>
+
+  <h2>1. Counterparty General Information</h2>
+  <table>
+    <tr>
+      <th style="width: 30%;">Legal &amp; Trading Name</th>
+      <td><strong>${escCompanyName}</strong></td>
+    </tr>
+    <tr>
+      <th>Primary Contact / Representative</th>
+      <td>${escClientName}</td>
+    </tr>
+    <tr>
+      <th>Role / Title</th>
+      <td>${escRole}</td>
+    </tr>
+    <tr>
+      <th>Jurisdiction / Residence</th>
+      <td>${escCountry}</td>
+    </tr>
+    <tr>
+      <th>Contact Information</th>
+      <td>${escContactInfo}</td>
+    </tr>
+  </table>
+
+  <h2>2. Mandatory Onboarding Checklist</h2>
+  <div class="checklist-item">
+    <span class="${data.kycChecklist?.identityEstablished ? 'checked' : 'pending'}">
+      [${data.kycChecklist?.identityEstablished ? 'X' : ' '}]
+    </span> 
+    <strong>Legal Identity Established and Registered</strong> &mdash; ${data.kycChecklist?.identityEstablished ? 'VERIFIED' : 'PENDING'}
+  </div>
+  <div class="checklist-item">
+    <span class="${data.kycChecklist?.ownershipVerified ? 'checked' : 'pending'}">
+      [${data.kycChecklist?.ownershipVerified ? 'X' : ' '}]
+    </span> 
+    <strong>Ultimate Beneficial Owners (UBO) Verification Completed</strong> &mdash; ${data.kycChecklist?.ownershipVerified ? 'VERIFIED' : 'PENDING'}
+  </div>
+  <div class="checklist-item">
+    <span class="${data.kycChecklist?.businessActivityDefined ? 'checked' : 'pending'}">
+      [${data.kycChecklist?.businessActivityDefined ? 'X' : ' '}]
+    </span> 
+    <strong>Business Purpose and Activity Formally Defined</strong> &mdash; ${data.kycChecklist?.businessActivityDefined ? 'VERIFIED' : 'PENDING'}
+  </div>
+  <div class="checklist-item">
+    <span class="${data.kycChecklist?.riskAssessmentCompleted ? 'checked' : 'pending'}">
+      [${data.kycChecklist?.riskAssessmentCompleted ? 'X' : ' '}]
+    </span> 
+    <strong>Risk Profile Assessment Completed</strong> &mdash; ${data.kycChecklist?.riskAssessmentCompleted ? 'VERIFIED' : 'PENDING'}
+  </div>
+
+  <h2>3. Huboo Onboarding Questionnaire (20 Questions)</h2>
+  
+  <h3>Question 1: Name (primary contact / principal)</h3>
+  <blockquote>${q.q1_name}</blockquote>
+
+  <h3>Question 2: Source (how the client came to us; referrer)</h3>
+  <blockquote>${q.q2_source}</blockquote>
+
+  <h3>Question 3: Country / residence</h3>
+  <blockquote>${q.q3_country}</blockquote>
+
+  <h3>Question 4: Address and telephone number</h3>
+  <blockquote>${q.q4_address_phone}</blockquote>
+
+  <h3>Question 5: Name of company (legal and trading name)</h3>
+  <blockquote>${q.q5_company_name}</blockquote>
+
+  <h3>Question 6: Activity (what the business does; product categories)</h3>
+  <blockquote>${q.q6_activity}</blockquote>
+
+  <h3>Question 7: Companies House / statutory databases (registration number; checks completed)</h3>
+  <blockquote>${q.q7_statutory_db}</blockquote>
+
+  <h3>Question 8: Date of formation</h3>
+  <blockquote>${q.q8_formation_date}</blockquote>
+
+  <h3>Question 9: Years trading</h3>
+  <blockquote>${q.q9_years_trading}</blockquote>
+
+  <h3>Question 10: Shipping (volumes; markets; carriers)</h3>
+  <blockquote>${q.q10_shipping}</blockquote>
+
+  <h3>Question 11: Channel (D2C / B2B / marketplace)</h3>
+  <blockquote>${q.q11_channel}</blockquote>
+
+  <h3>Question 12: Goods in / source (where stock originates; inbound)</h3>
+  <blockquote>${q.q12_goods_in}</blockquote>
+
+  <h3>Question 13: Stock &amp; shipping (SKUs; storage; fulfilment profile)</h3>
+  <blockquote>${q.q13_stock_shipping}</blockquote>
+
+  <h3>Question 14: Average RRP (and average order value / weight)</h3>
+  <blockquote>${q.q14_average_rrp}</blockquote>
+
+  <h3>Question 15: Start date (target go-live)</h3>
+  <blockquote>${q.q15_start_date}</blockquote>
+
+  <h3>Question 16: KYC (ID and address for UBOs and directors; certified docs; screening)</h3>
+  <blockquote>${q.q16_kyc}</blockquote>
+
+  <h3>Question 17: Capital (funding position; investors; source of funds)</h3>
+  <blockquote>${q.q17_capital}</blockquote>
+
+  <h3>Question 18: Europe (EU operations; VAT registrations; markets)</h3>
+  <blockquote>${q.q18_europe}</blockquote>
+
+  <h3>Question 19: Pricing (agreed rate card; B2B charges)</h3>
+  <blockquote>${q.q19_pricing}</blockquote>
+
+  <h3>Question 20: Other (notes; special requirements; risks)</h3>
+  <blockquote>${q.q20_other}</blockquote>
+
+  <h2>4. Commercial Discussions Audit</h2>
+  <ul>
+    <li><strong>Commercial discussions detected?</strong> ${data.commercialDiscussionsDetected ? 'YES (VIOLATION)' : 'NO (COMPLIANCE APPROVED)'}</li>
+    <li><strong>Severity Level:</strong> <strong>${severityText}</strong></li>
+  </ul>
+  <h3>Details of Commercial Topics Discussed:</h3>
+  <blockquote>${escCommercialDetails}</blockquote>
+
+  <h2>5. Required Actions &amp; Next Steps</h2>
+  <ul>
+    ${(data.nextStepsRequired || []).map(step => `<li><strong>${escapeHtml(step)}</strong></li>`).join('')}
+  </ul>
+
+  <h2>6. Conversation Summary</h2>
+  <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 6px; font-size: 10pt; color: #475569;">
+    ${escSummary}
+  </div>
+
+  <div class="footer">
+    <p><em>This document was automatically compiled and uploaded by the Huboo KYC Compliance Automator.</em></p>
+    <p><strong>Confidentiality Notice: INTERNAL COMPLIANCE RECORD ONLY. DO NOT DISTRIBUTE EXTERNALLY.</strong></p>
+  </div>
+</body>
+</html>`;
+
   const part1 = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`;
-  const part2 = `--${boundary}\r\nContent-Type: text/markdown; charset=UTF-8\r\n\r\n${markdownBodyText}\r\n`;
+  const part2 = `--${boundary}\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n${htmlBodyText}\r\n`;
   const part3 = `--${boundary}--`;
 
   const multipartBlob = new Blob([part1, part2, part3], { type: `multipart/related; boundary=${boundary}` });
@@ -383,13 +663,34 @@ export async function createAdditionalNote(
       parents: [folderId],
     };
 
+    const escapeHtml = (str: string): string => {
+      if (!str) return '';
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    };
+
+    const htmlBodyText = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+</head>
+<body style="font-family: Arial, sans-serif; color: #334155; line-height: 1.6; font-size: 11pt;">
+  <h2 style="color: #1e3a8a; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px; margin-bottom: 15px;">${escapeHtml(title)}</h2>
+  <div style="white-space: pre-wrap; background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 6px;">${escapeHtml(content)}</div>
+</body>
+</html>`;
+
     const body =
       `--${boundary}\r\n` +
       'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
       JSON.stringify(metadata) + '\r\n' +
       `--${boundary}\r\n` +
-      'Content-Type: text/plain; charset=UTF-8\r\n\r\n' +
-      content + '\r\n' +
+      'Content-Type: text/html; charset=UTF-8\r\n\r\n' +
+      htmlBodyText + '\r\n' +
       `--${boundary}--`;
 
     const createRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
