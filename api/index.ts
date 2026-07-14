@@ -31,25 +31,30 @@ enum Type {
 function getGeminiClient(customKey1?: string, useKeyIndex: 1 | 2 = 1, customKey2?: string): any {
   let apiKey = "";
   
+  const isPlaceholder = (val: string) => {
+    const v = val.trim();
+    return v === "MY_GEMINI_API_KEY" || v === "MY_GEMINI_API_KEY_2" || v === "null" || v === "undefined" || v === "";
+  };
+
   if (useKeyIndex === 2) {
     // 1. Try custom key 2 first
     if (customKey2 && typeof customKey2 === "string") {
       const trimmed = customKey2.trim();
-      if (trimmed && trimmed !== "null" && trimmed !== "undefined") {
+      if (trimmed && !isPlaceholder(trimmed)) {
         apiKey = trimmed;
       }
     }
     // 2. Fallback to server env key 2
     if (!apiKey) {
       const envKey2 = process.env.GEMINI_API_KEY_2 ? process.env.GEMINI_API_KEY_2.trim() : "";
-      if (envKey2 && envKey2 !== "null" && envKey2 !== "undefined" && envKey2 !== "MY_GEMINI_API_KEY") {
+      if (envKey2 && !isPlaceholder(envKey2)) {
         apiKey = envKey2;
       }
     }
     // 3. Last-resort fallback to custom key 1
     if (!apiKey && customKey1 && typeof customKey1 === "string") {
       const trimmed = customKey1.trim();
-      if (trimmed && trimmed !== "null" && trimmed !== "undefined") {
+      if (trimmed && !isPlaceholder(trimmed)) {
         apiKey = trimmed;
       }
     }
@@ -57,14 +62,14 @@ function getGeminiClient(customKey1?: string, useKeyIndex: 1 | 2 = 1, customKey2
     // 1. Try custom key 1 first
     if (customKey1 && typeof customKey1 === "string") {
       const trimmed = customKey1.trim();
-      if (trimmed && trimmed !== "null" && trimmed !== "undefined") {
+      if (trimmed && !isPlaceholder(trimmed)) {
         apiKey = trimmed;
       }
     }
     // 2. Fallback to server env key 1
     if (!apiKey) {
       const envKey1 = process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.trim() : "";
-      if (envKey1 && envKey1 !== "null" && envKey1 !== "undefined" && envKey1 !== "MY_GEMINI_API_KEY") {
+      if (envKey1 && !isPlaceholder(envKey1)) {
         apiKey = envKey1;
       }
     }
@@ -74,9 +79,9 @@ function getGeminiClient(customKey1?: string, useKeyIndex: 1 | 2 = 1, customKey2
   if (!apiKey) {
     const envKey1 = process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.trim() : "";
     const envKey2 = process.env.GEMINI_API_KEY_2 ? process.env.GEMINI_API_KEY_2.trim() : "";
-    if (envKey1 && envKey1 !== "null" && envKey1 !== "undefined" && envKey1 !== "MY_GEMINI_API_KEY") {
+    if (envKey1 && !isPlaceholder(envKey1)) {
       apiKey = envKey1;
-    } else if (envKey2 && envKey2 !== "null" && envKey2 !== "undefined" && envKey2 !== "MY_GEMINI_API_KEY") {
+    } else if (envKey2 && !isPlaceholder(envKey2)) {
       apiKey = envKey2;
     }
   }
@@ -131,7 +136,7 @@ app.get("/api/config-status", (req, res) => {
   }
   if (!hasKey && process.env.GEMINI_API_KEY) {
     const envKey = process.env.GEMINI_API_KEY.trim();
-    hasKey = envKey.length > 0 && envKey !== "MY_GEMINI_API_KEY";
+    hasKey = envKey.length > 0 && envKey !== "MY_GEMINI_API_KEY" && envKey !== "MY_GEMINI_API_KEY_2";
   }
 
   let hasKey2 = false;
@@ -144,7 +149,7 @@ app.get("/api/config-status", (req, res) => {
   }
   if (!hasKey2 && process.env.GEMINI_API_KEY_2) {
     const envKey2 = process.env.GEMINI_API_KEY_2.trim();
-    hasKey2 = envKey2.length > 0 && envKey2 !== "MY_GEMINI_API_KEY";
+    hasKey2 = envKey2.length > 0 && envKey2 !== "MY_GEMINI_API_KEY" && envKey2 !== "MY_GEMINI_API_KEY_2";
   }
 
   res.json({

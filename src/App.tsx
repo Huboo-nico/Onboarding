@@ -913,17 +913,11 @@ export default function App() {
                   <p className="font-semibold text-red-950">{error}</p>
                 </div>
                 {error.includes('GEMINI_API_KEY') && (
-                  <div className="text-[11px] bg-white/70 p-3 rounded border border-red-100 flex flex-col gap-1.5 text-slate-700 font-sans mt-0.5">
-                    <div className="font-bold text-red-900">Steps to resolve the API error in Vercel:</div>
-                    <ol className="list-decimal pl-4 flex flex-col gap-1.5 text-slate-600">
-                      <li>Open your project panel in <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-semibold">Vercel</a>.</li>
-                      <li>Go to the <strong>Settings</strong> tab at the top.</li>
-                      <li>Click on the <strong>Environment Variables</strong> section on the left.</li>
-                      <li>Create a new variable with the key: <code className="bg-slate-200 px-1 py-0.5 rounded text-red-600 font-mono font-bold select-all">GEMINI_API_KEY</code></li>
-                      <li>Paste your Gemini API Key value into the value field.</li>
-                      <li>Click <strong>Save</strong> to save it.</li>
-                      <li><em>Important!</em> Go to the <strong>Deployments</strong> tab of your project in Vercel, click on the three dots of your last deployment and select <strong>Redeploy</strong> to make the changes take effect.</li>
-                    </ol>
+                  <div className="text-[11px] bg-white/70 p-3 rounded border border-red-100 flex flex-col gap-1 text-slate-700 font-sans mt-0.5">
+                    <p className="font-bold text-red-900">Missing API Key</p>
+                    <p className="text-slate-600 leading-relaxed">
+                      Please make sure to add <code className="bg-slate-100 px-1 py-0.5 rounded text-red-600 font-mono">GEMINI_API_KEY</code> to your environment variables, or enter it manually below.
+                    </p>
                   </div>
                 )}
               </div>
@@ -1104,40 +1098,20 @@ export default function App() {
               </div>
               
               {hasGeminiKey === false && (
-                <div className="text-[11px] text-slate-600 space-y-1.5 border-t border-slate-100 pt-2.5 animate-fadeIn">
-                  <p className="font-medium text-rose-700">⚠️ Vercel has not loaded your GEMINI_API_KEY yet.</p>
+                <div className="text-[11px] text-slate-500 border-t border-slate-100 pt-2 animate-fadeIn flex flex-col gap-1">
+                  <p className="font-semibold text-rose-700">⚠️ Primary API Key not detected in server env variables.</p>
                   <p className="leading-relaxed">
-                    If you already added the variable in Vercel, this error happens because <strong>Vercel requires a new deployment (Redeploy)</strong> to apply new variables. Variables do not update automatically on existing deployments.
+                    Please configure <code className="bg-slate-100 px-1 py-0.5 rounded text-rose-600 font-mono">GEMINI_API_KEY</code> on your host or enter it manually below.
                   </p>
-                  <div className="bg-white p-2.5 rounded border border-rose-100 mt-1">
-                    <div className="font-bold text-slate-800 text-[10px] mb-1">Steps to activate the key immediately:</div>
-                    <ol className="list-decimal pl-4 text-[10px] space-y-1.5 text-slate-500">
-                      <li>Go to your project on <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-semibold">Vercel</a> and enter the <strong>Deployments</strong> tab.</li>
-                      <li>Find your last deployment (the active one), click on the <strong>three dots (...)</strong> on the right and select <strong>Redeploy</strong>.</li>
-                      <li>Once the deployment finishes (takes about 30 seconds), click on the <strong>"Check"</strong> button above.</li>
-                    </ol>
-                  </div>
                 </div>
               )}
 
               {hasGeminiKey2 === false && (
-                <div className="text-[11px] text-slate-600 space-y-1.5 border-t border-slate-100 pt-2.5 animate-fadeIn">
-                  <p className="font-medium text-slate-700">⚪ Secondary Key (Key 2 / Backup) not configured on Vercel.</p>
+                <div className="text-[11px] text-slate-500 border-t border-slate-100 pt-2 animate-fadeIn flex flex-col gap-1">
+                  <p className="font-semibold text-slate-700">⚪ Secondary API Key (Backup) not configured.</p>
                   <p className="leading-relaxed">
-                    We recommend configuring <code className="bg-slate-200 px-1 py-0.5 rounded text-indigo-600 font-mono font-bold">GEMINI_API_KEY_2</code> as <strong>gemini-3.5-flash</strong> to act as an automatic backup against quota limits (failover).
+                    You can optionally configure <code className="bg-slate-100 px-1 py-0.5 rounded text-indigo-600 font-mono">GEMINI_API_KEY_2</code> for automatic failover backup.
                   </p>
-                  <div className="bg-white p-2.5 rounded border border-slate-100 mt-1">
-                    <div className="font-bold text-slate-800 text-[10px] mb-1">Steps to configure API Key 2 on Vercel:</div>
-                    <ol className="list-decimal pl-4 text-[10px] space-y-1.5 text-slate-500">
-                      <li>Open your project on <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-semibold">Vercel</a>.</li>
-                      <li>Go to the <strong>Settings</strong> tab at the top.</li>
-                      <li>Click on the <strong>Environment Variables</strong> section on the left.</li>
-                      <li>Create a new variable with the key: <code className="bg-slate-200 px-1 py-0.5 rounded text-indigo-600 font-mono font-bold select-all">GEMINI_API_KEY_2</code></li>
-                      <li>Paste your backup Gemini API key in the value field.</li>
-                      <li>Click <strong>Save</strong>.</li>
-                      <li><strong>Important!</strong> Go to the <strong>Deployments</strong> tab, click on the <strong>three dots (...)</strong> of your last deployment and select <strong>Redeploy</strong> to apply the new backup key.</li>
-                    </ol>
-                  </div>
                 </div>
               )}
             </div>
